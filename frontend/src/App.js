@@ -1,6 +1,10 @@
-import NongDanApp from './NongDanApp';
-// import DailyApp from './DailyApp'; // đổi dòng này để xem giao diện đại lý
+import AgriChainLanding from './AgriChainLanding.tsx';
+import DangNhap from './DangNhap.tsx';
+import DangKy from './DangKy.tsx';
 
 export default function App() {
-  return <NongDanApp />;
+  const path = window.location.pathname;
+  if (path === '/login')    return <DangNhap />;
+  if (path === '/register') return <DangKy />;
+  return <AgriChainLanding />;
 }

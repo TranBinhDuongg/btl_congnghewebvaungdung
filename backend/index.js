@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { nongDanSpec, daiLySpec, sieuThiSpec } = require('./src/config/swagger');
 
 const app = express();
@@ -45,6 +46,9 @@ app.get('/api-docs/nongdan', (_req, res) => res.send(makeSwaggerHtml('/specs/non
 app.get('/api-docs/daily',   (_req, res) => res.send(makeSwaggerHtml('/specs/daily.json')));
 app.get('/api-docs/sieuthi', (_req, res) => res.send(makeSwaggerHtml('/specs/sieuthi.json')));
 
+// Auth
+app.use('/api/auth', require('./src/routes/auth.routes'));
+
 // Routes
 app.use('/api/nong-dan',         require('./src/routes/nongdan.routes'));
 app.use('/api/san-pham',         require('./src/routes/sanpham.routes'));
@@ -58,14 +62,12 @@ app.use('/api/kiem-dinh',        require('./src/routes/kiemdinhh.routes'));
 app.use('/api/sieuthi',          require('./src/routes/sieuthi.routes'));
 app.use('/api/KhoHang',          require('./src/routes/khohang.routes'));
 
-app.get('/', (_req, res) => res.json({
-  message: 'BTL_HDV1 API running',
-  docs: {
-    nongdan: 'http://localhost:5000/api-docs/nongdan',
-    daily:   'http://localhost:5000/api-docs/daily',
-    sieuthi: 'http://localhost:5000/api-docs/sieuthi',
-  }
-}));
+// Serve React frontend
+const frontendBuild = path.join(__dirname, '../frontend/build');
+app.use(express.static(frontendBuild));
+app.use((_req, res) => {
+  res.sendFile(path.join(frontendBuild, 'index.html'));
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
