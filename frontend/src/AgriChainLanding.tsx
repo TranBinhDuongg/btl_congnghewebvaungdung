@@ -5,6 +5,7 @@ const C = {
   mist: "#f0f7f0", white: "#ffffff", soil: "#3b2a1a", gold: "#c8a84b",
   gray: "#6b7280", lightBg: "#f4f9f4",
 };
+const SERIF = "'Be Vietnam Pro','Nunito','Segoe UI',sans-serif";
 
 function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -48,7 +49,7 @@ function Navbar() {
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
           <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#56c456,#2d7a2d)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌿</div>
-          <span style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: 20, fontWeight: 900, color: C.white, letterSpacing: 0.5 }}>AgriChain</span>
+          <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 900, color: C.white, letterSpacing: 0.5 }}>AgriChain</span>
         </a>
         <ul style={{ display: "flex", listStyle: "none", gap: 32, margin: 0, padding: 0 }}>
           {navLinks.map(n => (
@@ -81,7 +82,7 @@ function Hero() {
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
           <span style={{ fontSize: 12, color: C.lime, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Nền tảng quản lý nông sản số #1</span>
         </div>
-        <h1 style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: "clamp(36px,6vw,64px)", fontWeight: 900, color: C.white, lineHeight: 1.15, marginBottom: 24, animation: "fadeUp .7s .1s both" }}>
+        <h1 style={{ fontFamily: SERIF, fontSize: "clamp(36px,6vw,64px)", fontWeight: 900, color: C.white, lineHeight: 1.15, marginBottom: 24, animation: "fadeUp .7s .1s both" }}>
           Chuỗi cung ứng<br /><span style={{ color: C.lime }}>nông sản</span> minh bạch
         </h1>
         <p style={{ fontSize: "clamp(15px,2vw,19px)", color: "rgba(255,255,255,0.65)", lineHeight: 1.8, maxWidth: 600, margin: "0 auto 40px", animation: "fadeUp .7s .2s both" }}>
@@ -94,7 +95,7 @@ function Hero() {
         <div style={{ display: "flex", gap: 40, justifyContent: "center", flexWrap: "wrap", marginTop: 60, paddingTop: 40, borderTop: "1px solid rgba(255,255,255,0.08)", animation: "fadeUp .7s .45s both" }}>
           {[["1,200+", "Nông dân"], ["340+", "Đại lý"], ["85+", "Siêu thị"], ["99.8%", "Uptime"]].map(([v, l]) => (
             <div key={l} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28, fontWeight: 900, color: C.lime, fontFamily: "'Playfair Display','Georgia',serif" }}>{v}</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: C.lime, fontFamily: SERIF }}>{v}</div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4, letterSpacing: 0.5 }}>{l}</div>
             </div>
           ))}
@@ -122,7 +123,7 @@ function Features() {
             <div style={{ display: "inline-block", background: C.mist, border: "1px solid rgba(45,122,45,0.2)", borderRadius: 100, padding: "5px 14px", marginBottom: 16 }}>
               <span style={{ fontSize: 11, color: C.green, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>Tính năng nổi bật</span>
             </div>
-            <h2 style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.forest, marginBottom: 14 }}>Giải pháp toàn diện</h2>
+            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.forest, marginBottom: 14 }}>Giải pháp toàn diện</h2>
             <p style={{ fontSize: 17, color: C.gray, maxWidth: 500, margin: "0 auto" }}>Hệ thống quản lý tích hợp cho toàn bộ chuỗi cung ứng nông sản</p>
           </div>
         </Reveal>
@@ -159,7 +160,7 @@ function Roles() {
             <div style={{ display: "inline-block", background: C.mist, border: "1px solid rgba(45,122,45,0.2)", borderRadius: 100, padding: "5px 14px", marginBottom: 16 }}>
               <span style={{ fontSize: 11, color: C.green, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>Đối tượng sử dụng</span>
             </div>
-            <h2 style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.forest, marginBottom: 14 }}>Dành cho mọi vai trò</h2>
+            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.forest, marginBottom: 14 }}>Dành cho mọi vai trò</h2>
             <p style={{ fontSize: 17, color: C.gray }}>Hệ thống hỗ trợ đầy đủ các đối tượng trong chuỗi cung ứng</p>
           </div>
         </Reveal>
@@ -209,7 +210,7 @@ function HowItWorks() {
             <div style={{ display: "inline-block", background: "rgba(86,196,86,0.1)", border: "1px solid rgba(86,196,86,0.2)", borderRadius: 100, padding: "5px 14px", marginBottom: 16 }}>
               <span style={{ fontSize: 11, color: C.lime, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>Quy trình hoạt động</span>
             </div>
-            <h2 style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.white, marginBottom: 14 }}>4 bước đơn giản</h2>
+            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.white, marginBottom: 14 }}>4 bước đơn giản</h2>
             <p style={{ fontSize: 17, color: "rgba(255,255,255,0.6)" }}>Chuỗi cung ứng nông sản hoạt động liền mạch</p>
           </div>
         </Reveal>
@@ -250,7 +251,7 @@ function Benefits() {
             <div style={{ display: "inline-block", background: C.mist, border: "1px solid rgba(45,122,45,0.2)", borderRadius: 100, padding: "5px 14px", marginBottom: 16 }}>
               <span style={{ fontSize: 11, color: C.green, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>Lợi ích vượt trội</span>
             </div>
-            <h2 style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.forest, marginBottom: 14 }}>Giá trị cho toàn chuỗi</h2>
+            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(28px,4vw,42px)", fontWeight: 900, color: C.forest, marginBottom: 14 }}>Giá trị cho toàn chuỗi</h2>
             <p style={{ fontSize: 17, color: C.gray }}>Giải pháp mang lại lợi ích toàn diện cho mọi đối tượng</p>
           </div>
         </Reveal>
@@ -280,7 +281,7 @@ function CTA() {
       <div style={{ position: "absolute", top: -100, right: -100, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle,rgba(86,196,86,0.1),transparent 70%)", pointerEvents: "none" }} />
       <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
         <Reveal>
-          <h2 style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: "clamp(28px,4vw,48px)", fontWeight: 900, color: C.white, marginBottom: 18, lineHeight: 1.2 }}>Sẵn sàng <span style={{ color: C.lime }}>bắt đầu</span>?</h2>
+          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(28px,4vw,48px)", fontWeight: 900, color: C.white, marginBottom: 18, lineHeight: 1.2 }}>Sẵn sàng <span style={{ color: C.lime }}>bắt đầu</span>?</h2>
           <p style={{ fontSize: 18, color: "rgba(255,255,255,0.65)", marginBottom: 40, lineHeight: 1.7 }}>Tham gia cùng hàng nghìn nông dân, đại lý và siêu thị đang dùng AgriChain để tối ưu chuỗi cung ứng.</p>
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
             <a href="/register" style={{ padding: "14px 36px", background: "linear-gradient(135deg,#56c456,#2d7a2d)", color: C.white, textDecoration: "none", borderRadius: 10, fontWeight: 800, fontSize: 15, boxShadow: "0 8px 24px rgba(86,196,86,0.3)" }}>🚀 Đăng ký miễn phí</a>
@@ -305,7 +306,7 @@ function Footer() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <div style={{ width: 34, height: 34, background: "linear-gradient(135deg,#56c456,#2d7a2d)", borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🌿</div>
-              <span style={{ fontFamily: "'Playfair Display','Georgia',serif", fontSize: 20, fontWeight: 900, color: C.white }}>AgriChain</span>
+              <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 900, color: C.white }}>AgriChain</span>
             </div>
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.9, marginBottom: 20 }}>Giải pháp công nghệ toàn diện cho quản lý nông sản và chuỗi cung ứng.</p>
             <div style={{ display: "flex", gap: 10 }}>
