@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface User {
@@ -18,28 +18,12 @@ export interface Order {
 }
 export interface KpiData { farms: number; batches: number; orders: number; alerts: number; }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_USER: User = {
-  id: "ND123456", fullName: "Nguyễn Văn An", username: "nongdan123",
-  email: "nongdan.a@example.com", phone: "0987 654 321", role: "Nông dân",
-  province: "Hòa Bình", district: "Cao Phong", address: "Ấp 1, Xã Bình Minh",
-  farmName: "Trang trại Hòa Bình", farmArea: "5", cropType: "Rau củ",
-  certification: "VietGAP", createdAt: "2025-12-01T09:00:00",
+// ─── Empty defaults ───────────────────────────────────────────────────────────
+const EMPTY_USER: User = {
+  id: "", fullName: "", username: "", email: "", phone: "", role: "Nông dân",
+  province: "", district: "", address: "", farmName: "", farmArea: "",
+  cropType: "", certification: "", createdAt: "",
 };
-const MOCK_FARMS: Farm[] = [
-  { id: "F001", name: "Trang trại Hòa Bình", address: "Xã Bình Minh, Cao Phong", cert: "VietGAP" },
-  { id: "F002", name: "Vườn Xanh", address: "Xã Tân Phong, Đà Lạt", cert: "GlobalGAP" },
-];
-const MOCK_BATCHES: Batch[] = [
-  { id: "B001", farmName: "Trang trại Hòa Bình", product: "Cải thảo", quantity: 200, expiry: "2026-04-15", harvest: "2026-03-20", status: "active" },
-  { id: "B002", farmName: "Vườn Xanh", product: "Cà chua bi", quantity: 150, expiry: "2026-04-05", harvest: "2026-03-25", status: "active" },
-  { id: "B003", farmName: "Trang trại Hòa Bình", product: "Dưa leo", quantity: 80, expiry: "2026-04-01", harvest: "2026-03-28", status: "low" },
-];
-const MOCK_ORDERS: Order[] = [
-  { id: "PH001", batchId: "B001", product: "Cải thảo", quantity: 50, agentName: "Đại lý Miền Bắc", date: "2026-03-25", status: "pending" },
-  { id: "PH002", batchId: "B002", product: "Cà chua bi", quantity: 30, agentName: "Siêu thị BigC", date: "2026-03-27", status: "accepted" },
-  { id: "PH003", batchId: "B001", product: "Cải thảo", quantity: 70, agentName: "Chuỗi Rau Sạch VN", date: "2026-03-28", status: "shipped" },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -373,10 +357,10 @@ const PAGE_TITLES: Record<Section, string> = {
 
 export default function NongDanApp() {
   const [section, setSection] = useState<Section>("dashboard");
-  const [farms, setFarms] = useState<Farm[]>(MOCK_FARMS);
-  const [batches, setBatches] = useState<Batch[]>(MOCK_BATCHES);
-  const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
-  const [user] = useState<User>(MOCK_USER);
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [user] = useState<User>(EMPTY_USER);
   const [showProfile, setShowProfile] = useState(false);
   const [modal, setModal] = useState<null | "new-farm" | "new-batch" | "edit-farm" | "edit-batch">(null);
   const [editTarget, setEditTarget] = useState<Farm | Batch | null>(null);

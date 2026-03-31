@@ -1,0 +1,560 @@
+import React, { useState, CSSProperties, ReactNode } from "react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+export interface AgencyUser {
+  id: string; fullName: string; username: string; email: string; phone: string;
+  role: string; agencyName: string; agencyCode: string; province: string;
+  district: string; address: string; createdAt: string;
+}
+export interface ImportReceipt {
+  maPhieu: string; maLo: string; sanPham: string; soLuong: number;
+  tenNong: string; khoNhap: string; khoNhapName?: string;
+  ngayNhap: string; ghiChu?: string;
+  status: "created" | "pending" | "preparing" | "shipped" | "received";
+}
+export interface Warehouse { maKho: string; tenKho: string; diaChi: string; soDienThoai: string; }
+export interface InventoryBatch { maLo: string; sanPham: string; soLuong: number; ngayNhap: string; status: "in_stock" | "low" | "out"; }
+export interface QualityCheck {
+  maKiemDinh: string; maLo: string; ngayKiem: string; nguoiKiem: string;
+  ketQua: "Đạt" | "Không đạt" | "Yêu cầu bổ sung"; ghiChu?: string;
+}
+export interface RetailOrder {
+  maPhieu: string; maLo: string; sanPham: string; soLuong: number;
+  sieu_thi: string; ngayTao: string; status: "pending" | "shipped" | "received";
+}
+
+const EMPTY_USER: AgencyUser = {
+  id: "", fullName: "", username: "", email: "", phone: "", role: "Đại lý",
+  agencyName: "", agencyCode: "", province: "", district: "", address: "", createdAt: "",
+};
+
+// ─── Status config ────────────────────────────────────────────────────────────
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  created:             { label: "Đã tạo",        color: "#64748b", bg: "#f1f5f9" },
+  pending:             { label: "Chờ xử lý",     color: "#b45309", bg: "#fef3c7" },
+  preparing:           { label: "Chuẩn bị",      color: "#1d4ed8", bg: "#dbeafe" },
+  shipped:             { label: "Đã xuất",        color: "#7c3aed", bg: "#ede9fe" },
+  received:            { label: "Đã nhận",        color: "#059669", bg: "#d1fae5" },
+  in_stock:            { label: "Còn hàng",       color: "#15803d", bg: "#dcfce7" },
+  low:                 { label: "Sắp hết",        color: "#dc2626", bg: "#fee2e2" },
+  out:                 { label: "Hết hàng",       color: "#6b7280", bg: "#f3f4f6" },
+  "Đạt":               { label: "✓ Đạt",          color: "#059669", bg: "#d1fae5" },
+  "Không đạt":         { label: "✗ Không đạt",    color: "#dc2626", bg: "#fee2e2" },
+  "Yêu cầu bổ sung":  { label: "⚠ Bổ sung",      color: "#b45309", bg: "#fef3c7" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const s = STATUS_MAP[status] ?? { label: status, color: "#555", bg: "#f3f4f6" };
+  return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, color: s.color, background: s.bg, whiteSpace: "nowrap" }}>{s.label}</span>;
+}
+
+// ─── Shared micro-components ──────────────────────────────────────────────────
+function Panel({ children, style }: { children: ReactNode; style?: CSSProperties; key?: string }) {
+  return <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a", ...style }}>{children}</div>;
+}
+function SectionTitle({ children }: { children: ReactNode }) {
+  return <h4 style={{ fontSize: 14, fontWeight: 700, color: "#163d2b", marginBottom: 14, letterSpacing: 0.2 }}>{children}</h4>;
+}
+function StyledTable({ headers, children }: { headers: string[]; children: ReactNode }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead><tr>{headers.map(h => (
+          <th key={h} style={{ textAlign: "left", padding: "8px 12px", background: "#f8faf8", color: "#163d2b", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap" }}>{h}</th>
+        ))}</tr></thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+function Td({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  return <td style={{ padding: "10px 12px", verticalAlign: "middle", borderBottom: "1px solid #f0f0f0", ...style }}>{children}</td>;
+}
+function ActionBtn({ children, onClick, color = "#2563eb" }: { children: ReactNode; onClick: () => void; color?: string }) {
+  return <button onClick={onClick} style={{ marginRight: 5, padding: "4px 10px", background: color, color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{children}</button>;
+}
+function PrimaryBtn({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+  return <button onClick={onClick} style={{ padding: "9px 18px", background: "linear-gradient(135deg,#4caf50,#1a6b2a)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 0.3 }}>{children}</button>;
+}
+
+// ─── Modal shell ──────────────────────────────────────────────────────────────
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }} onClick={onClose}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 500, maxWidth: "94vw", maxHeight: "88vh", overflowY: "auto", position: "relative", boxShadow: "0 8px 40px #0003" }} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa" }}>✕</button>
+        <h3 style={{ marginBottom: 18, color: "#163d2b", fontWeight: 800, fontSize: 17 }}>{title}</h3>
+        {children}
+      </div>
+    </div>
+  );
+}
+function FormField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 5 }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+const inp: CSSProperties = { width: "100%", padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", fontFamily: "inherit" };
+
+// ─── Sections ─────────────────────────────────────────────────────────────────
+function Dashboard({ receipts, quality, inventory, warehouses, onNewReceipt }: { receipts: ImportReceipt[]; quality: QualityCheck[]; inventory: InventoryBatch[]; warehouses: Warehouse[]; onNewReceipt: () => void }) {
+  const alerts = quality.filter(q => q.ketQua !== "Đạt");
+  const totalStock = inventory.reduce((s, b) => s + b.soLuong, 0);
+  const kpis = [
+    { icon: "📥", label: "Phiếu nhập",   value: receipts.length,    accent: "#16a34a" },
+    { icon: "🏪", label: "Kho hàng",     value: warehouses.length,  accent: "#2563eb" },
+    { icon: "📦", label: "Tổng tồn kho", value: `${totalStock} kg`, accent: "#7c3aed" },
+    { icon: "⚠️", label: "Cảnh báo CL",  value: alerts.length,      accent: "#dc2626" },
+  ];
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16, marginBottom: 24 }}>
+        {kpis.map(k => (
+          <Panel key={k.label} style={{ borderTop: `4px solid ${k.accent}`, display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ fontSize: 28 }}>{k.icon}</span>
+            <div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "#111", lineHeight: 1 }}>{k.value}</div>
+              <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{k.label}</div>
+            </div>
+          </Panel>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(460px,1fr))", gap: 16 }}>
+        <Panel>
+          <SectionTitle>📋 Đơn hàng gần đây</SectionTitle>
+          <StyledTable headers={["Mã phiếu", "Lô — Sản phẩm", "SL", "Kho", "Ngày", "TT"]}>
+            {receipts.slice(0, 5).map(r => (
+              <tr key={r.maPhieu}>
+                <Td><code style={{ fontSize: 11, color: "#888" }}>{r.maPhieu}</code></Td>
+                <Td><span style={{ color: "#aaa", fontSize: 11 }}>{r.maLo} —</span> <b>{r.sanPham}</b></Td>
+                <Td>{r.soLuong} kg</Td><Td>{r.khoNhapName || r.khoNhap}</Td><Td>{r.ngayNhap}</Td>
+                <Td><StatusBadge status={r.status} /></Td>
+              </tr>
+            ))}
+          </StyledTable>
+        </Panel>
+        <Panel>
+          <SectionTitle>🔬 Cảnh báo chất lượng</SectionTitle>
+          {alerts.length === 0
+            ? <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0", fontSize: 13 }}>Không có cảnh báo</p>
+            : <StyledTable headers={["Mã KĐ", "Lô", "Kết quả", "Ngày", "Ghi chú"]}>
+                {alerts.map(q => (
+                  <tr key={q.maKiemDinh}>
+                    <Td><code style={{ fontSize: 11, color: "#888" }}>{q.maKiemDinh}</code></Td>
+                    <Td><b>{q.maLo}</b></Td><Td><StatusBadge status={q.ketQua} /></Td>
+                    <Td>{q.ngayKiem}</Td><Td style={{ color: "#888" }}>{q.ghiChu || "—"}</Td>
+                  </tr>
+                ))}
+              </StyledTable>
+          }
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditReceipt, onDeleteReceipt, onAcceptRetail, onShipRetail }: {
+  receipts: ImportReceipt[]; retail: RetailOrder[]; warehouses: Warehouse[];
+  onNewReceipt: () => void; onEditReceipt: (r: ImportReceipt) => void; onDeleteReceipt: (id: string) => void;
+  onAcceptRetail: (id: string) => void; onShipRetail: (id: string) => void;
+}) {
+  const [tab, setTab] = useState<"import" | "retail">("import");
+  const tabBtn = (id: "import" | "retail", label: string) => (
+    <button onClick={() => setTab(id)} style={{ padding: "7px 18px", borderRadius: 8, border: "1.5px solid", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === id ? "linear-gradient(135deg,#4caf50,#1a6b2a)" : "transparent", color: tab === id ? "#fff" : "#666", borderColor: tab === id ? "transparent" : "#ddd" }}>{label}</button>
+  );
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8 }}>{tabBtn("import", "📥 Nhập hàng")}{tabBtn("retail", "📤 Xuất hàng")}</div>
+        {tab === "import" && <PrimaryBtn onClick={onNewReceipt}>+ Tạo phiếu nhập</PrimaryBtn>}
+      </div>
+      {tab === "import" && (
+        <Panel>
+          <SectionTitle>Phiếu nhập hàng từ Nông dân</SectionTitle>
+          <StyledTable headers={["Mã phiếu", "Lô — Sản phẩm", "SL", "Nông dân", "Kho nhập", "Ngày nhập", "TT", ""]}>
+            {receipts.map(r => (
+              <tr key={r.maPhieu}>
+                <Td><code style={{ fontSize: 11, color: "#888" }}>{r.maPhieu}</code></Td>
+                <Td><span style={{ color: "#aaa", fontSize: 11 }}>{r.maLo} —</span> <b>{r.sanPham}</b></Td>
+                <Td>{r.soLuong} kg</Td><Td>{r.tenNong}</Td><Td>{r.khoNhapName || r.khoNhap}</Td><Td>{r.ngayNhap}</Td>
+                <Td><StatusBadge status={r.status} /></Td>
+                <Td><ActionBtn onClick={() => onEditReceipt(r)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDeleteReceipt(r.maPhieu)} color="#dc2626">Xóa</ActionBtn></Td>
+              </tr>
+            ))}
+          </StyledTable>
+        </Panel>
+      )}
+      {tab === "retail" && (
+        <Panel>
+          <SectionTitle>Đơn hàng từ Siêu thị</SectionTitle>
+          <StyledTable headers={["Mã phiếu", "Lô — Sản phẩm", "SL", "Siêu thị", "Ngày tạo", "TT", ""]}>
+            {retail.map(r => (
+              <tr key={r.maPhieu}>
+                <Td><code style={{ fontSize: 11, color: "#888" }}>{r.maPhieu}</code></Td>
+                <Td><span style={{ color: "#aaa", fontSize: 11 }}>{r.maLo} —</span> <b>{r.sanPham}</b></Td>
+                <Td>{r.soLuong} kg</Td><Td>{r.sieu_thi}</Td><Td>{r.ngayTao}</Td>
+                <Td><StatusBadge status={r.status} /></Td>
+                <Td>
+                  {r.status === "pending"  && <ActionBtn onClick={() => onAcceptRetail(r.maPhieu)} color="#16a34a">Xác nhận</ActionBtn>}
+                  {r.status === "received" && <ActionBtn onClick={() => onShipRetail(r.maPhieu)}   color="#7c3aed">Xuất hàng</ActionBtn>}
+                </Td>
+              </tr>
+            ))}
+          </StyledTable>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehouse, onDeleteWarehouse }: {
+  warehouses: Warehouse[]; inventory: InventoryBatch[];
+  onNewWarehouse: () => void; onEditWarehouse: (w: Warehouse) => void; onDeleteWarehouse: (id: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <Panel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <SectionTitle>🏪 Danh sách kho nhập hàng</SectionTitle>
+          <PrimaryBtn onClick={onNewWarehouse}>+ Thêm kho</PrimaryBtn>
+        </div>
+        <StyledTable headers={["Mã kho", "Tên kho", "Địa chỉ", "SĐT", ""]}>
+          {warehouses.map(w => (
+            <tr key={w.maKho}>
+              <Td><code style={{ fontSize: 11, color: "#888" }}>{w.maKho}</code></Td>
+              <Td><b>{w.tenKho}</b></Td><Td>{w.diaChi}</Td><Td>{w.soDienThoai}</Td>
+              <Td><ActionBtn onClick={() => onEditWarehouse(w)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDeleteWarehouse(w.maKho)} color="#dc2626">Xóa</ActionBtn></Td>
+            </tr>
+          ))}
+        </StyledTable>
+      </Panel>
+      <Panel>
+        <SectionTitle>📦 Tồn kho hiện tại (theo lô)</SectionTitle>
+        <StyledTable headers={["Mã lô", "Sản phẩm", "Số lượng", "Ngày nhập", "Trạng thái"]}>
+          {inventory.map(b => (
+            <tr key={b.maLo}>
+              <Td><code style={{ fontSize: 11, color: "#888" }}>{b.maLo}</code></Td>
+              <Td><b>{b.sanPham}</b></Td><Td>{b.soLuong} kg</Td><Td>{b.ngayNhap}</Td>
+              <Td><StatusBadge status={b.status} /></Td>
+            </tr>
+          ))}
+        </StyledTable>
+      </Panel>
+    </div>
+  );
+}
+
+function QualitySection({ quality, onNew, onEdit, onDelete }: {
+  quality: QualityCheck[]; onNew: () => void; onEdit: (q: QualityCheck) => void; onDelete: (id: string) => void;
+}) {
+  return (
+    <Panel>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <SectionTitle>🔬 Phiếu kiểm định chất lượng</SectionTitle>
+        <PrimaryBtn onClick={onNew}>+ Thêm kiểm định</PrimaryBtn>
+      </div>
+      <StyledTable headers={["Mã KĐ", "Mã lô", "Ngày kiểm", "Người kiểm", "Kết quả", "Ghi chú", ""]}>
+        {quality.map(q => (
+          <tr key={q.maKiemDinh}>
+            <Td><code style={{ fontSize: 11, color: "#888" }}>{q.maKiemDinh}</code></Td>
+            <Td><b>{q.maLo}</b></Td><Td>{q.ngayKiem}</Td><Td>{q.nguoiKiem}</Td>
+            <Td><StatusBadge status={q.ketQua} /></Td>
+            <Td style={{ color: "#888" }}>{q.ghiChu || "—"}</Td>
+            <Td><ActionBtn onClick={() => onEdit(q)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDelete(q.maKiemDinh)} color="#dc2626">Xóa</ActionBtn></Td>
+          </tr>
+        ))}
+      </StyledTable>
+    </Panel>
+  );
+}
+
+function ReportsSection({ receipts, retail, inventory, quality }: {
+  receipts: ImportReceipt[]; retail: RetailOrder[]; inventory: InventoryBatch[]; quality: QualityCheck[];
+}) {
+  const totalStock = inventory.reduce((s, b) => s + b.soLuong, 0);
+  const shipped = retail.filter(r => r.status === "shipped").length;
+  const passed = quality.filter(q => q.ketQua === "Đạt").length;
+  const passRate = quality.length ? Math.round((passed / quality.length) * 100) : 0;
+  const cards = [
+    { icon: "📥", label: "Tổng phiếu nhập", value: receipts.length,    color: "#16a34a" },
+    { icon: "🚚", label: "Đã xuất hàng",    value: shipped,            color: "#7c3aed" },
+    { icon: "📦", label: "Tổng tồn kho",    value: `${totalStock} kg`, color: "#2563eb" },
+    { icon: "✅", label: "Tỷ lệ đạt CL",    value: `${passRate}%`,     color: "#059669" },
+  ];
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+      {cards.map(c => (
+        <Panel key={c.label} style={{ textAlign: "center", borderLeft: `5px solid ${c.color}` }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>{c.icon}</div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>{c.label}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.value}</div>
+        </Panel>
+      ))}
+    </div>
+  );
+}
+
+// ─── Form Modals ──────────────────────────────────────────────────────────────
+function ReceiptModal({ receipt, warehouses, onClose, onSave }: {
+  receipt: ImportReceipt | null; warehouses: Warehouse[];
+  onClose: () => void; onSave: (d: Partial<ImportReceipt>) => void;
+}) {
+  const [maPhieu, setMaPhieu] = useState(receipt?.maPhieu || "");
+  const [maLo, setMaLo] = useState(receipt?.maLo || "");
+  const [sanPham, setSanPham] = useState(receipt?.sanPham || "");
+  const [soLuong, setSoLuong] = useState(String(receipt?.soLuong || ""));
+  const [tenNong, setTenNong] = useState(receipt?.tenNong || "");
+  const [khoNhap, setKhoNhap] = useState(receipt?.khoNhap || warehouses[0]?.maKho || "");
+  const [ngayNhap, setNgayNhap] = useState(receipt?.ngayNhap || "");
+  const [ghiChu, setGhiChu] = useState(receipt?.ghiChu || "");
+  return (
+    <Modal title={receipt ? "Chỉnh sửa phiếu nhập" : "Tạo phiếu nhập hàng"} onClose={onClose}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+        <FormField label="Mã phiếu *"><input style={inp} value={maPhieu} onChange={e => setMaPhieu(e.target.value)} placeholder="PN001" /></FormField>
+        <FormField label="Mã lô *"><input style={inp} value={maLo} onChange={e => setMaLo(e.target.value)} placeholder="B001" /></FormField>
+        <FormField label="Sản phẩm *"><input style={inp} value={sanPham} onChange={e => setSanPham(e.target.value)} placeholder="Cải thảo…" /></FormField>
+        <FormField label="Số lượng (kg) *"><input style={inp} type="number" value={soLuong} onChange={e => setSoLuong(e.target.value)} placeholder="50" /></FormField>
+      </div>
+      <FormField label="Nông dân"><input style={inp} value={tenNong} onChange={e => setTenNong(e.target.value)} placeholder="Tên nông dân" /></FormField>
+      <FormField label="Kho nhập *">
+        <select style={inp} value={khoNhap} onChange={e => setKhoNhap(e.target.value)}>
+          {warehouses.map(w => <option key={w.maKho} value={w.maKho}>{w.tenKho}</option>)}
+        </select>
+      </FormField>
+      <FormField label="Ngày nhập *"><input style={inp} type="date" value={ngayNhap} onChange={e => setNgayNhap(e.target.value)} /></FormField>
+      <FormField label="Ghi chú"><input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuỳ chọn" /></FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+        <PrimaryBtn onClick={() => {
+          if (!maPhieu || !maLo || !sanPham || !soLuong || !khoNhap || !ngayNhap) return alert("Vui lòng điền đủ thông tin");
+          const khoObj = warehouses.find(w => w.maKho === khoNhap);
+          onSave({ maPhieu, maLo, sanPham, soLuong: Number(soLuong), tenNong, khoNhap, khoNhapName: khoObj?.tenKho, ngayNhap, ghiChu });
+        }}>Lưu phiếu</PrimaryBtn>
+      </div>
+    </Modal>
+  );
+}
+
+function WarehouseModal({ warehouse, onClose, onSave }: {
+  warehouse: Warehouse | null; onClose: () => void; onSave: (d: Partial<Warehouse>) => void;
+}) {
+  const [maKho, setMaKho] = useState(warehouse?.maKho || "");
+  const [tenKho, setTenKho] = useState(warehouse?.tenKho || "");
+  const [diaChi, setDiaChi] = useState(warehouse?.diaChi || "");
+  const [sdt, setSdt] = useState(warehouse?.soDienThoai || "");
+  return (
+    <Modal title={warehouse ? "Chỉnh sửa kho" : "Thêm kho mới"} onClose={onClose}>
+      <FormField label="Mã kho"><input style={inp} value={maKho} onChange={e => setMaKho(e.target.value)} placeholder="KHO01" /></FormField>
+      <FormField label="Tên kho *"><input style={inp} value={tenKho} onChange={e => setTenKho(e.target.value)} placeholder="Kho Long Biên" /></FormField>
+      <FormField label="Địa chỉ"><input style={inp} value={diaChi} onChange={e => setDiaChi(e.target.value)} placeholder="Số nhà, đường, quận…" /></FormField>
+      <FormField label="Số điện thoại"><input style={inp} value={sdt} onChange={e => setSdt(e.target.value)} placeholder="024…" /></FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+        <PrimaryBtn onClick={() => { if (!tenKho) return alert("Cần tên kho"); onSave({ maKho, tenKho, diaChi, soDienThoai: sdt }); }}>Lưu kho</PrimaryBtn>
+      </div>
+    </Modal>
+  );
+}
+
+function QualityModal({ check, onClose, onSave }: {
+  check: QualityCheck | null; onClose: () => void; onSave: (d: Partial<QualityCheck>) => void;
+}) {
+  const [maKD, setMaKD] = useState(check?.maKiemDinh || "");
+  const [maLo, setMaLo] = useState(check?.maLo || "");
+  const [ngay, setNgay] = useState(check?.ngayKiem || "");
+  const [nguoi, setNguoi] = useState(check?.nguoiKiem || "");
+  const [kq, setKq] = useState<QualityCheck["ketQua"]>(check?.ketQua || "Đạt");
+  const [ghiChu, setGhiChu] = useState(check?.ghiChu || "");
+  return (
+    <Modal title={check ? "Chỉnh sửa kiểm định" : "Thêm phiếu kiểm định"} onClose={onClose}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+        <FormField label="Mã kiểm định"><input style={inp} value={maKD} onChange={e => setMaKD(e.target.value)} placeholder="KD001" /></FormField>
+        <FormField label="Mã lô"><input style={inp} value={maLo} onChange={e => setMaLo(e.target.value)} placeholder="B001" /></FormField>
+        <FormField label="Ngày kiểm"><input style={inp} type="date" value={ngay} onChange={e => setNgay(e.target.value)} /></FormField>
+        <FormField label="Người kiểm"><input style={inp} value={nguoi} onChange={e => setNguoi(e.target.value)} placeholder="Tên người kiểm" /></FormField>
+      </div>
+      <FormField label="Kết quả">
+        <select style={inp} value={kq} onChange={e => setKq(e.target.value as QualityCheck["ketQua"])}>
+          <option value="Đạt">✓ Đạt</option>
+          <option value="Không đạt">✗ Không đạt</option>
+          <option value="Yêu cầu bổ sung">⚠ Yêu cầu bổ sung</option>
+        </select>
+      </FormField>
+      <FormField label="Ghi chú"><input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuỳ chọn" /></FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+        <PrimaryBtn onClick={() => onSave({ maKiemDinh: maKD, maLo, ngayKiem: ngay, nguoiKiem: nguoi, ketQua: kq, ghiChu })}>Lưu</PrimaryBtn>
+      </div>
+    </Modal>
+  );
+}
+
+function UserProfileModal({ user, onClose }: { user: AgencyUser; onClose: () => void }) {
+  const fields: [string, string][] = [
+    ["Họ tên", user.fullName], ["Tên đăng nhập", user.username],
+    ["Email", user.email], ["Số điện thoại", user.phone],
+    ["Vai trò", user.role], ["Tên đại lý", user.agencyName],
+    ["Mã đại lý", user.agencyCode], ["Tỉnh/TP", user.province],
+    ["Quận/Huyện", user.district], ["Địa chỉ", user.address],
+    ["Ngày tạo", new Date(user.createdAt).toLocaleDateString("vi-VN")], ["ID", user.id],
+  ];
+  return (
+    <Modal title="Thông tin cá nhân" onClose={onClose}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+        <div style={{ width: 60, height: 60, background: "linear-gradient(135deg,#4caf50,#1a472a)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>🏢</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
+        {fields.map(([k, v]) => (
+          <div key={k} style={{ padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
+            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>{k}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#222", marginTop: 2 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
+type Section = "dashboard" | "orders" | "inventory" | "quality" | "reports";
+const NAV: { id: Section; label: string; icon: string }[] = [
+  { id: "dashboard", label: "Bảng điều khiển",   icon: "🏠" },
+  { id: "orders",    label: "Quản lý đơn hàng",  icon: "📋" },
+  { id: "inventory", label: "Quản lý kho",        icon: "🏪" },
+  { id: "quality",   label: "Kiểm định CL",       icon: "🔬" },
+  { id: "reports",   label: "Báo cáo thống kê",   icon: "📊" },
+];
+const PAGE_TITLES: Record<Section, string> = {
+  dashboard: "Bảng điều khiển", orders: "Quản lý đơn hàng",
+  inventory: "Quản lý kho", quality: "Kiểm định chất lượng", reports: "Báo cáo thống kê",
+};
+type ModalType = "receipt" | "receipt-edit" | "warehouse" | "warehouse-edit" | "quality" | "quality-edit" | "profile" | null;
+
+export default function DailyApp() {
+  const [section, setSection] = useState<Section>("dashboard");
+  const [receipts, setReceipts] = useState<ImportReceipt[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [inventory, setInventory] = useState<InventoryBatch[]>([]);
+  const [quality, setQuality] = useState<QualityCheck[]>([]);
+  const [retail, setRetail] = useState<RetailOrder[]>([]);
+  const [modal, setModal] = useState<ModalType>(null);
+  const [editTarget, setEditTarget] = useState<ImportReceipt | Warehouse | QualityCheck | null>(null);
+  const [user] = useState<AgencyUser>(EMPTY_USER);
+
+  function handleSaveReceipt(d: Partial<ImportReceipt>) {
+    if (modal === "receipt-edit" && editTarget) {
+      setReceipts(rs => rs.map(r => r.maPhieu === (editTarget as ImportReceipt).maPhieu ? { ...r, ...d } : r));
+    } else {
+      setReceipts(rs => [...rs, { status: "created", ...d } as ImportReceipt]);
+    }
+    setModal(null); setEditTarget(null);
+  }
+  function handleDeleteReceipt(id: string) {
+    if (window.confirm("Xóa phiếu nhập này?")) setReceipts(rs => rs.filter(r => r.maPhieu !== id));
+  }
+  function handleSaveWarehouse(d: Partial<Warehouse>) {
+    if (modal === "warehouse-edit" && editTarget) {
+      setWarehouses(ws => ws.map(w => w.maKho === (editTarget as Warehouse).maKho ? { ...w, ...d } : w));
+    } else {
+      setWarehouses(ws => [...ws, { maKho: "KHO" + Date.now(), ...d } as Warehouse]);
+    }
+    setModal(null); setEditTarget(null);
+  }
+  function handleDeleteWarehouse(id: string) {
+    if (window.confirm("Xóa kho này?")) setWarehouses(ws => ws.filter(w => w.maKho !== id));
+  }
+  function handleSaveQuality(d: Partial<QualityCheck>) {
+    if (modal === "quality-edit" && editTarget) {
+      setQuality(qs => qs.map(q => q.maKiemDinh === (editTarget as QualityCheck).maKiemDinh ? { ...q, ...d } : q));
+    } else {
+      setQuality(qs => [...qs, { maKiemDinh: "KD" + Date.now(), ...d } as QualityCheck]);
+    }
+    setModal(null); setEditTarget(null);
+  }
+  function handleDeleteQuality(id: string) {
+    if (window.confirm("Xóa phiếu kiểm định?")) setQuality(qs => qs.filter(q => q.maKiemDinh !== id));
+  }
+
+  const headerCtas: Partial<Record<Section, ReactNode>> = {
+    dashboard: <PrimaryBtn onClick={() => setModal("receipt")}>+ Nhập hàng</PrimaryBtn>,
+  };
+
+  return (
+    <div style={{ fontFamily: "'Be Vietnam Pro','Segoe UI',Tahoma,Geneva,sans-serif", background: "#f4f6f4", minHeight: "100vh" }}>
+      <aside style={{ position: "fixed", left: 0, top: 0, width: 248, height: "100vh", background: "linear-gradient(180deg,#0f2f1a 0%,#0a1f11 100%)", color: "#fff", display: "flex", flexDirection: "column", zIndex: 1000 }}>
+        <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 28 }}>🏢</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: 0.5 }}>Đại Lý</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", letterSpacing: 0.8, textTransform: "uppercase" }}>Quản lý phân phối</div>
+            </div>
+          </div>
+        </div>
+        <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }} onClick={() => setModal("profile")}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#4caf50,#1a472a)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>👤</div>
+            <div style={{ overflow: "hidden" }}>
+              <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.fullName}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>{user.agencyName}</div>
+            </div>
+          </div>
+        </div>
+        <nav style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
+          {NAV.map(n => (
+            <button key={n.id} onClick={() => setSection(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 18px", background: section === n.id ? "rgba(76,175,80,0.18)" : "none", border: "none", borderLeft: section === n.id ? "3px solid #4caf50" : "3px solid transparent", color: section === n.id ? "#4caf50" : "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 13, fontWeight: section === n.id ? 700 : 500, textAlign: "left" }}>
+              <span>{n.icon}</span><span>{n.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div style={{ padding: "10px 8px 16px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { window.location.href = "/login"; }}>
+            <span>🚪</span><span>Đăng xuất</span>
+          </button>
+        </div>
+      </aside>
+
+      <main style={{ marginLeft: 248, padding: "28px 28px 48px", minHeight: "100vh" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f2f1a", margin: 0 }}>{PAGE_TITLES[section]}</h2>
+            <p style={{ fontSize: 12, color: "#aaa", margin: "3px 0 0" }}>Xin chào, {user.fullName} · {user.agencyName}</p>
+          </div>
+          {headerCtas[section]}
+        </div>
+        {section === "dashboard" && <Dashboard receipts={receipts} quality={quality} inventory={inventory} warehouses={warehouses} onNewReceipt={() => setModal("receipt")} />}
+        {section === "orders" && (
+          <OrdersSection receipts={receipts} retail={retail} warehouses={warehouses}
+            onNewReceipt={() => setModal("receipt")}
+            onEditReceipt={r => { setEditTarget(r); setModal("receipt-edit"); }}
+            onDeleteReceipt={handleDeleteReceipt}
+            onAcceptRetail={id => setRetail(rs => rs.map(r => r.maPhieu === id ? { ...r, status: "received" } : r))}
+            onShipRetail={id => setRetail(rs => rs.map(r => r.maPhieu === id ? { ...r, status: "shipped" } : r))}
+          />
+        )}
+        {section === "inventory" && (
+          <InventorySection warehouses={warehouses} inventory={inventory}
+            onNewWarehouse={() => setModal("warehouse")}
+            onEditWarehouse={w => { setEditTarget(w); setModal("warehouse-edit"); }}
+            onDeleteWarehouse={handleDeleteWarehouse}
+          />
+        )}
+        {section === "quality" && (
+          <QualitySection quality={quality} onNew={() => setModal("quality")}
+            onEdit={q => { setEditTarget(q); setModal("quality-edit"); }}
+            onDelete={handleDeleteQuality}
+          />
+        )}
+        {section === "reports" && <ReportsSection receipts={receipts} retail={retail} inventory={inventory} quality={quality} />}
+      </main>
+
+      {(modal === "receipt" || modal === "receipt-edit") && <ReceiptModal receipt={modal === "receipt-edit" ? editTarget as ImportReceipt : null} warehouses={warehouses} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveReceipt} />}
+      {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveWarehouse} />}
+      {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveQuality} />}
+      {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} />}
+    </div>
+  );
+}

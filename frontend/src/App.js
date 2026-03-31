@@ -1,7 +1,6 @@
 import NongDanApp from './NongDanApp';
+// import DailyApp from './DailyApp'; // đổi dòng này để xem giao diện đại lý
 
-function App() {
+export default function App() {
   return <NongDanApp />;
 }
-
-export default App;
