@@ -8,19 +8,23 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export interface LoginPayload {
-  accountType: UserRole;
   username: string;
   password: string;
+  role: string;
 }
 
 export interface AuthUser {
-  id: number;
-  fullName: string;
+  maTaiKhoan: number;
+  maDoiTuong: number;
+  tenHienThi: string;
   username: string;
   role: UserRole;
+  email?: string;
+  soDienThoai?: string;
+  diaChi?: string;
 }
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "";
 
 export interface RegisterPayload {
   role: UserRole;
@@ -62,7 +66,7 @@ export async function apiLogin(payload: LoginPayload): Promise<AuthUser> {
   const res = await fetch(`${API}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ username: payload.username, password: payload.password, role: payload.role }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");

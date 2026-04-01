@@ -1,43 +1,38 @@
 const { getPool, sql } = require('../config/db');
 
-// Map loại tài khoản → stored procedure + tên trường ID trả về
-const ROLE_CONFIG = {
-  nongdan: { sp: 'sp_LoginNongDan',  idField: 'MaNongDan',  nameField: 'HoTen'     },
-  daily:   { sp: 'sp_LoginDaiLy',    idField: 'MaDaiLy',    nameField: 'TenDaiLy'  },
-  sieuthi: { sp: 'sp_LoginSieuThi',  idField: 'MaSieuThi',  nameField: 'TenSieuThi'},
-  admin:   { sp: 'sp_LoginAdmin',    idField: 'MaAdmin',    nameField: 'HoTen'     },
-};
-
 const login = async (req, res) => {
-  const { accountType, username, password } = req.body;
+  const { username, password, role } = req.body;
+  console.log('LOGIN REQUEST:', { username, role }); // debug
 
-  if (!accountType || !username || !password)
-    return res.status(400).json({ message: 'Thiếu thông tin đăng nhập' });
-
-  const cfg = ROLE_CONFIG[accountType];
-  if (!cfg)
-    return res.status(400).json({ message: 'Loại tài khoản không hợp lệ' });
+  if (!username || !password)
+    return res.status(400).json({ message: 'Thiếu tên đăng nhập hoặc mật khẩu' });
+  if (!role)
+    return res.status(400).json({ message: 'Vui lòng chọn loại tài khoản' });
 
   try {
     const pool = await getPool();
     const result = await pool.request()
-      .input('TenDangNhap', sql.NVarChar, username.trim())
-      .input('MatKhau',     sql.NVarChar, password)
-      .execute(cfg.sp);
+      .input('TenDangNhap', sql.NVarChar(50),  username.trim())
+      .input('MatKhau',     sql.NVarChar(255), password)
+      .input('LoaiYeuCau',  sql.NVarChar(20),  role)
+      .execute('sp_Login');
 
     const row = result.recordset?.[0];
     if (!row) return res.status(401).json({ message: 'Sai tên đăng nhập hoặc mật khẩu' });
 
     res.json({
-      id:       row[cfg.idField],
-      fullName: row[cfg.nameField],
-      username: row.TenDangNhap,
-      role:     accountType,
+      maTaiKhoan:  row.MaTaiKhoan,
+      maDoiTuong:  row.MaDoiTuong,
+      tenHienThi:  row.TenHienThi,
+      username:    row.TenDangNhap,
+      role:        row.LoaiTaiKhoan,
+      email:       row.Email,
+      soDienThoai: row.SoDienThoai,
+      diaChi:      row.DiaChi,
     });
   } catch (err) {
-    // SP trả lỗi RAISERROR khi sai mật khẩu
-    if (err.message?.includes('sai') || err.message?.includes('không tìm thấy') || err.number === 50001)
-      return res.status(401).json({ message: 'Sai tên đăng nhập hoặc mật khẩu' });
+    if (err.message?.includes('Sai') || err.message?.includes('khóa'))
+      return res.status(401).json({ message: err.message });
     res.status(500).json({ message: err.message });
   }
 };

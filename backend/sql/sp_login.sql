@@ -1,60 +1,67 @@
 -- =============================================
--- SP Login cho từng loại tài khoản
--- Trả về thông tin user nếu đúng, RAISERROR nếu sai
+-- SP Login dùng bảng TaiKhoan tập trung + kiểm tra role
 -- =============================================
-
--- 1. Nông dân
-CREATE OR ALTER PROCEDURE sp_LoginNongDan
-  @TenDangNhap NVARCHAR(100),
-  @MatKhau     NVARCHAR(255)
+CREATE OR ALTER PROCEDURE sp_Login
+  @TenDangNhap NVARCHAR(50),
+  @MatKhau     NVARCHAR(255),
+  @LoaiYeuCau  NVARCHAR(20)  -- role người dùng chọn
 AS
 BEGIN
   SET NOCOUNT ON;
-  SELECT MaNongDan, TenDangNhap, HoTen, Email, SoDienThoai, DiaChi
-  FROM NongDan
-  WHERE TenDangNhap = @TenDangNhap
-    AND MatKhauHash = @MatKhau;
-END;
-GO
 
--- 2. Đại lý
-CREATE OR ALTER PROCEDURE sp_LoginDaiLy
-  @TenDangNhap NVARCHAR(100),
-  @MatKhau     NVARCHAR(255)
-AS
-BEGIN
-  SET NOCOUNT ON;
-  SELECT MaDaiLy, TenDangNhap, TenDaiLy, Email, SoDienThoai, DiaChi
-  FROM DaiLy
-  WHERE TenDangNhap = @TenDangNhap
-    AND MatKhauHash = @MatKhau;
-END;
-GO
+  DECLARE @MaTaiKhoan INT, @LoaiTaiKhoan NVARCHAR(20), @TrangThai NVARCHAR(20);
 
--- 3. Siêu thị
-CREATE OR ALTER PROCEDURE sp_LoginSieuThi
-  @TenDangNhap NVARCHAR(100),
-  @MatKhau     NVARCHAR(255)
-AS
-BEGIN
-  SET NOCOUNT ON;
-  SELECT MaSieuThi, TenDangNhap, TenSieuThi, Email, SoDienThoai, DiaChi
-  FROM SieuThi
+  SELECT @MaTaiKhoan   = MaTaiKhoan,
+         @LoaiTaiKhoan = LoaiTaiKhoan,
+         @TrangThai    = TrangThai
+  FROM TaiKhoan
   WHERE TenDangNhap = @TenDangNhap
-    AND MatKhauHash = @MatKhau;
-END;
-GO
+    AND MatKhau     = @MatKhau;
 
--- 4. Admin (nếu có bảng Admin, nếu không thì dùng NongDan với role check)
-CREATE OR ALTER PROCEDURE sp_LoginAdmin
-  @TenDangNhap NVARCHAR(100),
-  @MatKhau     NVARCHAR(255)
-AS
-BEGIN
-  SET NOCOUNT ON;
-  SELECT MaNongDan AS MaAdmin, TenDangNhap, HoTen
-  FROM NongDan
-  WHERE TenDangNhap = @TenDangNhap
-    AND MatKhauHash = @MatKhau;
+  IF @MaTaiKhoan IS NULL
+  BEGIN
+    RAISERROR(N'Sai tên đăng nhập hoặc mật khẩu', 16, 1); RETURN;
+  END
+
+  IF @TrangThai != N'hoat_dong'
+  BEGIN
+    RAISERROR(N'Tài khoản đã bị khóa', 16, 1); RETURN;
+  END
+
+  -- Kiểm tra role có khớp không
+  IF @LoaiTaiKhoan != @LoaiYeuCau
+  BEGIN
+    RAISERROR(N'Loại tài khoản không đúng', 16, 1); RETURN;
+  END
+
+  UPDATE TaiKhoan SET LanDangNhapCuoi = SYSDATETIME() WHERE MaTaiKhoan = @MaTaiKhoan;
+
+  IF @LoaiTaiKhoan = N'nongdan'
+    SELECT tk.MaTaiKhoan, tk.TenDangNhap, tk.LoaiTaiKhoan,
+           nd.MaNongDan AS MaDoiTuong, nd.HoTen AS TenHienThi,
+           nd.Email, nd.SoDienThoai, nd.DiaChi
+    FROM TaiKhoan tk JOIN NongDan nd ON nd.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE tk.MaTaiKhoan = @MaTaiKhoan;
+
+  ELSE IF @LoaiTaiKhoan = N'daily'
+    SELECT tk.MaTaiKhoan, tk.TenDangNhap, tk.LoaiTaiKhoan,
+           dl.MaDaiLy AS MaDoiTuong, dl.TenDaiLy AS TenHienThi,
+           dl.Email, dl.SoDienThoai, dl.DiaChi
+    FROM TaiKhoan tk JOIN DaiLy dl ON dl.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE tk.MaTaiKhoan = @MaTaiKhoan;
+
+  ELSE IF @LoaiTaiKhoan = N'sieuthi'
+    SELECT tk.MaTaiKhoan, tk.TenDangNhap, tk.LoaiTaiKhoan,
+           st.MaSieuThi AS MaDoiTuong, st.TenSieuThi AS TenHienThi,
+           st.Email, st.SoDienThoai, st.DiaChi
+    FROM TaiKhoan tk JOIN SieuThi st ON st.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE tk.MaTaiKhoan = @MaTaiKhoan;
+
+  ELSE IF @LoaiTaiKhoan = N'admin'
+    SELECT tk.MaTaiKhoan, tk.TenDangNhap, tk.LoaiTaiKhoan,
+           a.MaAdmin AS MaDoiTuong, a.HoTen AS TenHienThi,
+           a.Email, a.SoDienThoai, NULL AS DiaChi
+    FROM TaiKhoan tk JOIN Admin a ON a.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE tk.MaTaiKhoan = @MaTaiKhoan;
 END;
 GO
