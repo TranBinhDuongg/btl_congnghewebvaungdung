@@ -65,3 +65,101 @@ BEGIN
     WHERE tk.MaTaiKhoan = @MaTaiKhoan;
 END;
 GO
+
+-- =============================================
+-- SP Reset Password
+-- =============================================
+CREATE OR ALTER PROCEDURE sp_ResetPassword
+  @LoaiTaiKhoan NVARCHAR(20),
+  @Email        NVARCHAR(100),
+  @MatKhauMoi   NVARCHAR(255)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  DECLARE @MaTaiKhoan INT;
+
+  -- Tìm tài khoản theo email và loại
+  IF @LoaiTaiKhoan = N'nongdan'
+    SELECT @MaTaiKhoan = tk.MaTaiKhoan FROM TaiKhoan tk
+    JOIN NongDan nd ON nd.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE nd.Email = @Email AND tk.LoaiTaiKhoan = @LoaiTaiKhoan;
+
+  ELSE IF @LoaiTaiKhoan = N'daily'
+    SELECT @MaTaiKhoan = tk.MaTaiKhoan FROM TaiKhoan tk
+    JOIN DaiLy dl ON dl.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE dl.Email = @Email AND tk.LoaiTaiKhoan = @LoaiTaiKhoan;
+
+  ELSE IF @LoaiTaiKhoan = N'sieuthi'
+    SELECT @MaTaiKhoan = tk.MaTaiKhoan FROM TaiKhoan tk
+    JOIN SieuThi st ON st.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE st.Email = @Email AND tk.LoaiTaiKhoan = @LoaiTaiKhoan;
+
+  ELSE IF @LoaiTaiKhoan = N'admin'
+    SELECT @MaTaiKhoan = tk.MaTaiKhoan FROM TaiKhoan tk
+    JOIN Admin a ON a.MaTaiKhoan = tk.MaTaiKhoan
+    WHERE a.Email = @Email AND tk.LoaiTaiKhoan = @LoaiTaiKhoan;
+
+  IF @MaTaiKhoan IS NULL
+  BEGIN
+    SELECT 0 AS Success; RETURN;
+  END
+
+  UPDATE TaiKhoan SET MatKhau = @MatKhauMoi WHERE MaTaiKhoan = @MaTaiKhoan;
+  SELECT 1 AS Success;
+END;
+GO
+
+-- =============================================
+-- SP Register - tạo TaiKhoan + bảng tương ứng
+-- =============================================
+CREATE OR ALTER PROCEDURE sp_Register
+  @TenDangNhap  NVARCHAR(50),
+  @MatKhau      NVARCHAR(255),
+  @LoaiTaiKhoan NVARCHAR(20),
+  @HoTen        NVARCHAR(100),
+  @SoDienThoai  NVARCHAR(20)  = NULL,
+  @Email        NVARCHAR(100) = NULL,
+  @DiaChi       NVARCHAR(255) = NULL
+AS
+BEGIN
+  SET NOCOUNT ON;
+  BEGIN TRANSACTION;
+  BEGIN TRY
+    -- Kiểm tra trùng tên đăng nhập
+    IF EXISTS (SELECT 1 FROM TaiKhoan WHERE TenDangNhap = @TenDangNhap)
+    BEGIN
+      RAISERROR(N'Tên đăng nhập đã tồn tại', 16, 1); RETURN;
+    END
+
+    -- Tạo tài khoản
+    INSERT INTO TaiKhoan (TenDangNhap, MatKhau, LoaiTaiKhoan)
+    VALUES (@TenDangNhap, @MatKhau, @LoaiTaiKhoan);
+
+    DECLARE @MaTaiKhoan INT = SCOPE_IDENTITY();
+
+    -- Tạo bảng tương ứng
+    IF @LoaiTaiKhoan = N'nongdan'
+      INSERT INTO NongDan (MaTaiKhoan, HoTen, SoDienThoai, Email, DiaChi)
+      VALUES (@MaTaiKhoan, @HoTen, @SoDienThoai, @Email, @DiaChi);
+
+    ELSE IF @LoaiTaiKhoan = N'daily'
+      INSERT INTO DaiLy (MaTaiKhoan, TenDaiLy, SoDienThoai, Email, DiaChi)
+      VALUES (@MaTaiKhoan, @HoTen, @SoDienThoai, @Email, @DiaChi);
+
+    ELSE IF @LoaiTaiKhoan = N'sieuthi'
+      INSERT INTO SieuThi (MaTaiKhoan, TenSieuThi, SoDienThoai, Email, DiaChi)
+      VALUES (@MaTaiKhoan, @HoTen, @SoDienThoai, @Email, @DiaChi);
+
+    ELSE IF @LoaiTaiKhoan = N'admin'
+      INSERT INTO Admin (MaTaiKhoan, HoTen, SoDienThoai, Email)
+      VALUES (@MaTaiKhoan, @HoTen, @SoDienThoai, @Email);
+
+    COMMIT;
+    SELECT @MaTaiKhoan AS MaTaiKhoan;
+  END TRY
+  BEGIN CATCH
+    ROLLBACK;
+    THROW;
+  END CATCH
+END;
+GO

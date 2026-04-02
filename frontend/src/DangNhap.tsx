@@ -143,6 +143,8 @@ export default function DangNhap() {
           <div style={{ textAlign: "center", marginTop: 18, paddingTop: 18, borderTop: "1px solid #f0f0f0", fontSize: 13, color: "#888", display: "flex", justifyContent: "center", gap: 12 }}>
             <a href="/register" style={{ color: G.green, fontWeight: 700, textDecoration: "none" }}>Đăng ký</a>
             <span style={{ color: "#ddd" }}>|</span>
+            <a href="/forgot-password" style={{ color: G.green, fontWeight: 700, textDecoration: "none" }}>Quên mật khẩu</a>
+            <span style={{ color: "#ddd" }}>|</span>
             <a href="/" style={{ color: G.green, fontWeight: 700, textDecoration: "none" }}>Trang chủ</a>
           </div>
         </form>

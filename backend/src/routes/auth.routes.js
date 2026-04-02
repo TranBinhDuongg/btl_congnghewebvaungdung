@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { login } = require('../controllers/auth.controller');
+const { login, register, resetPassword } = require('../controllers/auth.controller');
+
+router.post('/login', login);
+router.post('/register', register);
 
 /**
  * @swagger
@@ -32,3 +35,5 @@ const { login } = require('../controllers/auth.controller');
 router.post('/login', login);
 
 module.exports = router;
+
+router.post('/reset-password', resetPassword);

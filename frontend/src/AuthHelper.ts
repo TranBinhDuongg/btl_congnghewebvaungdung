@@ -41,22 +41,20 @@ export interface RegisterPayload {
 }
 
 export async function apiRegister(payload: RegisterPayload): Promise<void> {
-  const endpointMap: Record<UserRole, string> = {
-    nongdan: "/api/nong-dan/create",
-    daily:   "/api/dai-ly/create",
-    sieuthi: "/api/sieuthi/create",
-    admin:   "/api/nong-dan/create",
-  };
-  const bodyMap: Record<UserRole, object> = {
-    nongdan: { TenDangNhap: payload.username, MatKhauHash: payload.password, HoTen: payload.fullName, SoDienThoai: payload.phone, Email: payload.email, DiaChi: payload.address },
-    daily:   { TenDangNhap: payload.username, MatKhauHash: payload.password, TenDaiLy: payload.companyName || payload.fullName, SoDienThoai: payload.phone, Email: payload.email, DiaChi: payload.address },
-    sieuthi: { TenDangNhap: payload.username, MatKhauHash: payload.password, TenSieuThi: payload.storeName || payload.fullName, SoDienThoai: payload.phone, Email: payload.email, DiaChi: payload.address },
-    admin:   { TenDangNhap: payload.username, MatKhauHash: payload.password, HoTen: payload.fullName, SoDienThoai: payload.phone, Email: payload.email, DiaChi: payload.address },
-  };
-  const res = await fetch(`${API}${endpointMap[payload.role]}`, {
+  const res = await fetch(`${API}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(bodyMap[payload.role]),
+    body: JSON.stringify({
+      role:        payload.role,
+      username:    payload.username,
+      password:    payload.password,
+      fullName:    payload.fullName,
+      phone:       payload.phone,
+      email:       payload.email,
+      address:     `${payload.address}, ${payload.district}, ${payload.province}`,
+      companyName: payload.companyName,
+      storeName:   payload.storeName,
+    }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Đăng ký thất bại");
@@ -71,4 +69,20 @@ export async function apiLogin(payload: LoginPayload): Promise<AuthUser> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
   return data as AuthUser;
+}
+
+export interface ResetPasswordPayload {
+  role: UserRole;
+  email: string;
+  newPassword: string;
+}
+
+export async function apiResetPassword(payload: ResetPasswordPayload): Promise<void> {
+  const res = await fetch(`${API}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Đặt lại mật khẩu thất bại");
 }
