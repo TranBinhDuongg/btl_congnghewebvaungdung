@@ -6,6 +6,8 @@ import NongDanApp from './NongDanApp';
 import DailyApp from './DailyApp';
 import SieuThiApp from './SieuThiApp.tsx';
 
+import AdminApp from './AdminApp.tsx';
+
 export default function App() {
   const path = window.location.pathname;
   if (path === '/login')           return <DangNhap />;
@@ -14,5 +16,6 @@ export default function App() {
   if (path === '/nongdan')         return <NongDanApp />;
   if (path === '/daily')           return <DailyApp />;
   if (path === '/sieuthi')         return <SieuThiApp />;
+  if (path === '/admin')           return <AdminApp />;
   return <AgriChainLanding />;
 }
