@@ -60,6 +60,21 @@ export async function apiRegister(payload: RegisterPayload): Promise<void> {
   if (!res.ok) throw new Error(data.message || "Đăng ký thất bại");
 }
 
+const USER_KEY = "agrichain_user";
+
+export function getCurrentUser(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearCurrentUser(): void {
+  localStorage.removeItem(USER_KEY);
+}
+
 export async function apiLogin(payload: LoginPayload): Promise<AuthUser> {
   const res = await fetch(`${API}/api/auth/login`, {
     method: "POST",
@@ -68,7 +83,9 @@ export async function apiLogin(payload: LoginPayload): Promise<AuthUser> {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
-  return data as AuthUser;
+  const user = data as AuthUser;
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  return user;
 }
 
 export interface ResetPasswordPayload {

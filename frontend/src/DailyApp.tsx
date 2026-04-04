@@ -1,4 +1,5 @@
-import React, { useState, CSSProperties, ReactNode } from "react";
+import React, { useState, useEffect, CSSProperties, ReactNode } from "react";
+import { getCurrentUser, clearCurrentUser } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface AgencyUser {
@@ -442,7 +443,15 @@ export default function DailyApp() {
   const [retail, setRetail] = useState<RetailOrder[]>([]);
   const [modal, setModal] = useState<ModalType>(null);
   const [editTarget, setEditTarget] = useState<ImportReceipt | Warehouse | QualityCheck | null>(null);
-  const [user] = useState<AgencyUser>(EMPTY_USER);
+
+  const authUser = getCurrentUser();
+  useEffect(() => {
+    if (!authUser || authUser.role !== "daily") {
+      window.location.href = "/login";
+    }
+  }, []);
+
+  const user: AgencyUser = { ...EMPTY_USER, fullName: authUser?.tenHienThi || "", username: authUser?.username || "", email: authUser?.email || "" };
 
   function handleSaveReceipt(d: Partial<ImportReceipt>) {
     if (modal === "receipt-edit" && editTarget) {
@@ -511,7 +520,7 @@ export default function DailyApp() {
           ))}
         </nav>
         <div style={{ padding: "10px 8px 16px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { window.location.href = "/login"; }}>
+          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px", background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
             <span>🚪</span><span>Đăng xuất</span>
           </button>
         </div>

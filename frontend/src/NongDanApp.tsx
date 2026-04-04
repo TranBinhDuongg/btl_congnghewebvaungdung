@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { getCurrentUser, clearCurrentUser } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface User {
@@ -360,10 +361,24 @@ export default function NongDanApp() {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [user] = useState<User>(EMPTY_USER);
   const [showProfile, setShowProfile] = useState(false);
   const [modal, setModal] = useState<null | "new-farm" | "new-batch" | "edit-farm" | "edit-batch">(null);
   const [editTarget, setEditTarget] = useState<Farm | Batch | null>(null);
+
+  const authUser = getCurrentUser();
+  useEffect(() => {
+    if (!authUser || authUser.role !== "nongdan") {
+      window.location.href = "/login";
+    }
+  }, []);
+
+  const user: User = {
+    ...EMPTY_USER,
+    fullName: authUser?.tenHienThi || "",
+    username: authUser?.username || "",
+    email: authUser?.email || "",
+    soDienThoai: authUser?.soDienThoai || "",
+  } as User;
 
   function handleDeleteFarm(id: string) {
     if (window.confirm("Xóa trang trại này?")) setFarms(f => f.filter(x => x.id !== id));
@@ -430,7 +445,7 @@ export default function NongDanApp() {
           ))}
         </nav>
         <div style={{ padding: "10px 8px 16px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 10px", background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { window.location.href = "/login"; }}>
+          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 10px", background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
             <span>🚪</span><span>Đăng xuất</span>
           </button>
         </div>

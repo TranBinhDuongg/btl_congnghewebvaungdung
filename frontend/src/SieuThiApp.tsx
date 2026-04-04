@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, ReactNode, CSSProperties } from "react";
+import { getCurrentUser, clearCurrentUser } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Order {
@@ -26,12 +27,11 @@ const C = {
 };
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
-const CURRENT_USER = { id: "ST789123", fullName: "Lê Văn C", role: "Siêu thị" };
-const getKey = (k: string) => `user_${CURRENT_USER.id}_${k}`;
-const loadKey = <T,>(k: string, fb: T): T => {
-  try { return JSON.parse(localStorage.getItem(getKey(k)) || "null") ?? fb; } catch { return fb; }
+const getKey = (k: string, id: string) => `user_${id}_${k}`;
+const loadKey = <T,>(k: string, id: string, fb: T): T => {
+  try { return JSON.parse(localStorage.getItem(getKey(k, id)) || "null") ?? fb; } catch { return fb; }
 };
-const saveKey = (k: string, v: unknown) => localStorage.setItem(getKey(k), JSON.stringify(v));
+const saveKey = (k: string, id: string, v: unknown) => localStorage.setItem(getKey(k, id), JSON.stringify(v));
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
@@ -113,6 +113,15 @@ const PAGE_TITLES: Record<Section, string> = {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function SieuThiApp() {
+  const authUser = getCurrentUser();
+  const CURRENT_USER = { id: String(authUser?.maTaiKhoan || ""), fullName: authUser?.tenHienThi || "", role: "Siêu thị" };
+
+  useEffect(() => {
+    if (!authUser || authUser.role !== "sieuthi") {
+      window.location.href = "/login";
+    }
+  }, []);
+
   const [section, setSection] = useState<Section>("dashboard");
   const [db, setDb] = useState<DB>({ orders: [], lohang: [], kiemDinh: [] });
   const [incoming, setIncoming] = useState<RetailOrder[]>([]);
@@ -124,21 +133,23 @@ export default function SieuThiApp() {
   const [qualityForm, setQualityForm] = useState({ maKiemDinh: "", maLo: "", ngayKiem: "", nguoiKiem: "", ketQua: "Đạt", ghiChu: "" });
 
   const loadAll = useCallback(() => {
+    const uid = CURRENT_USER.id;
     setDb({
-      orders:   loadKey<Order[]>("orders", []),
-      lohang:   loadKey<LoHang[]>("lohang", []),
-      kiemDinh: loadKey<KiemDinh[]>("kiemDinh", []),
+      orders:   loadKey<Order[]>("orders", uid, []),
+      lohang:   loadKey<LoHang[]>("lohang", uid, []),
+      kiemDinh: loadKey<KiemDinh[]>("kiemDinh", uid, []),
     });
     try {
       const all: RetailOrder[] = JSON.parse(localStorage.getItem("retail_orders") || "[]");
       setIncoming(all.filter(m => String(m.fromSieuthiId) === CURRENT_USER.id && m.status?.toLowerCase() === "shipped"));
     } catch { /* empty */ }
-  }, []);
+  }, [CURRENT_USER.id]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
   const save = (newDb: DB) => {
-    (["orders", "lohang", "kiemDinh"] as (keyof DB)[]).forEach(k => saveKey(k, newDb[k]));
+    const uid = CURRENT_USER.id;
+    (["orders", "lohang", "kiemDinh"] as (keyof DB)[]).forEach(k => saveKey(k, uid, newDb[k]));
     setDb({ ...newDb });
   };
 
@@ -214,7 +225,7 @@ export default function SieuThiApp() {
           ))}
         </nav>
         <div style={{ padding: "10px 8px 16px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px", background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { window.location.href = "/login"; }}>
+          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px", background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
             <span>🚪</span><span>Đăng xuất</span>
           </button>
         </div>

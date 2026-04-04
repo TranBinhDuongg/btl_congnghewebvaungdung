@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getCurrentUser, clearCurrentUser } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface User { id: string; hoTen: string; role: string; email: string; }
@@ -18,8 +19,8 @@ function loadDB(): DB {
   const st = ls<User[]>("sieuthiAgencies", []);
   const adminUsers = ls<User[]>("admin_users", []);
   const seen = new Set<string>();
-  const users = [...adminUsers, ...nd, ...dl, ...st]
-    .map((u: Record<string, string>) => ({ id: String(u.id || u.maDaiLy || u.maNong || ""), hoTen: u.hoTen || u.fullName || u.tenDaiLy || u.tenNong || u.username || "", role: u.role || u.loai || "", email: u.email || "" }))
+  const users = ([...adminUsers, ...nd, ...dl, ...st] as unknown as Record<string, unknown>[])
+    .map(u => ({ id: String(u.id || u.maDaiLy || u.maNong || ""), hoTen: String(u.hoTen || u.fullName || u.tenDaiLy || u.tenNong || u.username || ""), role: String(u.role || u.loai || ""), email: String(u.email || "") }))
     .filter(u => { if (seen.has(u.id)) return false; seen.add(u.id); return true; });
   return {
     users,
@@ -171,6 +172,13 @@ export default function AdminApp() {
   const [userForm, setUserForm] = useState({ hoTen: "", role: "nongdan", email: "" });
   const [farmForm, setFarmForm] = useState({ ten: "", chu: "", diachi: "" });
 
+  const authUser = getCurrentUser();
+  useEffect(() => {
+    if (!authUser || authUser.role !== "admin") {
+      window.location.href = "/login";
+    }
+  }, []);
+
   const refresh = useCallback(() => setDb(loadDB()), []);
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -249,7 +257,7 @@ export default function AdminApp() {
           <button style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", background: "transparent", borderRadius: 10, border: "none", cursor: "pointer", color: "#f87171", fontSize: 13, fontFamily: "inherit", transition: "all 0.14s" }}
             onMouseEnter={e => { e.currentTarget.style.background = "rgba(248,113,113,0.1)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-            onClick={() => { window.location.href = "/login"; }}>
+            onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
             🚪 Đăng xuất
           </button>
         </div>

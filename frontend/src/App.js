@@ -2,8 +2,8 @@ import AgriChainLanding from './AgriChainLanding.tsx';
 import DangNhap from './DangNhap.tsx';
 import DangKy from './DangKy.tsx';
 import QuenMatKhau from './QuenMatKhau.tsx';
-import NongDanApp from './NongDanApp';
-import DailyApp from './DailyApp';
+import NongDanApp from './NongDanApp.tsx';
+import DailyApp from './DailyApp.tsx';
 import SieuThiApp from './SieuThiApp.tsx';
 
 import AdminApp from './AdminApp.tsx';
