@@ -111,7 +111,7 @@ function Dashboard({ farms, batches, orders }: { farms: Farm[]; batches: Batch[]
     { label: "Trang trại",   value: kpis.farms,   icon: "🌿", accent: "#16a34a" },
     { label: "Lô sản phẩm",  value: kpis.batches, icon: "📦", accent: "#2563eb" },
     { label: "Đơn hàng",     value: kpis.orders,  icon: "📋", accent: "#7c3aed" },
-    { label: "Cảnh báo HSD", value: kpis.alerts,  icon: "⚠️", accent: "#dc2626" },
+    { label: "Cảnh báo hạn sử dụng", value: kpis.alerts,  icon: "⚠️", accent: "#dc2626" },
   ];
   return (
     <div>
@@ -186,7 +186,7 @@ function OrdersSection({ orders, onAccept, onShip }: { orders: Order[]; onAccept
   return (
     <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
       <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 14 }}>Đơn từ Đại lý gửi đến</h4>
-      <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "SL", "Đại lý", "Ngày tạo", "Trạng thái", "Hành động"]}>
+      <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "Số lượng", "Đại lý", "Ngày tạo", "Trạng thái", "Hành động"]}>
         {orders.map(o => (
           <tr key={o.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
             <Td><code style={{ fontSize: 11, color: "#888" }}>{o.id}</code></Td>
@@ -211,7 +211,7 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
       <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
         <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 6 }}>📥 Tồn kho</h4>
         <p style={{ fontSize: 12, color: "#aaa", marginBottom: 14 }}>Lô sản phẩm đang lưu kho</p>
-        <StyledTable headers={["Mã lô", "Sản phẩm", "SL", "Trang trại", "Hạn dùng", "TT"]}>
+        <StyledTable headers={["Mã lô", "Sản phẩm", "Số lượng", "Trang trại", "Hạn dùng", "Trạng thái"]}>
           {batches.map(b => (
             <tr key={b.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
               <Td><code style={{ fontSize: 11, color: "#888" }}>{b.id}</code></Td>
@@ -224,7 +224,7 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
       <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
         <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 6 }}>📤 Lịch sử xuất hàng</h4>
         <p style={{ fontSize: 12, color: "#aaa", marginBottom: 14 }}>Hàng đã xuất cho Đại lý</p>
-        <StyledTable headers={["Mã đơn", "Mã lô", "SL", "Đại lý", "Ngày"]}>
+        <StyledTable headers={["Mã đơn", "Mã lô", "Số lượng", "Đại lý", "Ngày"]}>
           {exported.length === 0
             ? <tr><td colSpan={5} style={{ textAlign: "center", color: "#aaa", padding: "20px 0", fontSize: 13 }}>Chưa có lịch sử xuất hàng</td></tr>
             : exported.map(o => (
