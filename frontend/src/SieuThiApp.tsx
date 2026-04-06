@@ -248,8 +248,8 @@ export default function SieuThiApp() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16, marginBottom: 24 }}>
               {[
                 { icon: "📋", label: "Tổng đơn hàng",   value: db.orders.length,   color: C.primary },
-                { icon: "📦", label: "Tồn kho",          value: `${totalStock} sp`, color: "#7c3aed" },
-                { icon: "⚠️", label: "Cảnh báo CL",      value: qualityAlerts,      color: "#dc2626" },
+                { icon: "📦", label: "Tồn kho",          value: `${totalStock} `, color: "#7c3aed" },
+                { icon: "⚠️", label: "Cảnh báo chất lượng",      value: qualityAlerts,      color: "#dc2626" },
                 { icon: "🏪", label: "Số lô hàng",       value: db.lohang.length,   color: "#059669" },
               ].map(k => (
                 <Panel key={k.label} style={{ borderTop: `4px solid ${k.color}`, display: "flex", alignItems: "center", gap: 14 }}>
@@ -263,7 +263,7 @@ export default function SieuThiApp() {
             </div>
             <Panel>
               <SectionTitle>📋 Đơn hàng gần đây</SectionTitle>
-              <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "SL", "Đại lý", "Ngày tạo", "TT"]}>
+              <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "Số lượng", "Đại lý", "Ngày tạo", "Trạng thái"]}>
                 {[...db.orders].reverse().slice(0, 8).map(o => (
                   <tr key={o.uid}>
                     <Td><code style={{ fontSize: 11, color: "#888" }}>{o.maPhieu}</code></Td>
@@ -282,7 +282,7 @@ export default function SieuThiApp() {
         {section === "orders" && (
           <Panel>
             <SectionTitle>Danh sách đơn đặt hàng</SectionTitle>
-            <StyledTable headers={["Mã phiếu", "Mã lô", "Sản phẩm", "SL", "Đại lý", "Kho", "Ngày tạo", "TT", ""]}>
+            <StyledTable headers={["Mã phiếu", "Mã lô", "Sản phẩm", "Số lượng", "Đại lý", "Kho", "Ngày tạo", "Trạng thái", ""]}>
               {db.orders.map(o => (
                 <tr key={o.uid}>
                   <Td><code style={{ fontSize: 11, color: "#888" }}>{o.maPhieu}</code></Td>
@@ -305,7 +305,7 @@ export default function SieuThiApp() {
         {section === "receive" && (
           <Panel>
             <SectionTitle>Hàng đang chờ nhận từ Đại lý</SectionTitle>
-            <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "SL", "Đại lý", "Ngày gửi", "TT", ""]}>
+            <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "Số lượng", "Đại lý", "Ngày gửi", "Trạng thái", ""]}>
               {incoming.map(m => (
                 <tr key={m.uid}>
                   <Td><code style={{ fontSize: 11, color: "#888" }}>{m.maPhieu}</code></Td>
@@ -349,7 +349,7 @@ export default function SieuThiApp() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 24 }}>
               {[
                 { icon: "📋", label: "Tổng đơn hàng",   value: `${db.orders.length} đơn`,    color: C.primary },
-                { icon: "📦", label: "Tồn kho",          value: `${totalStock} sp`,            color: "#7c3aed" },
+                { icon: "📦", label: "Tồn kho",          value: `${totalStock} sản phẩm`,            color: "#7c3aed" },
                 { icon: "🏪", label: "Số lô hàng",       value: `${db.lohang.length} lô`,      color: "#059669" },
                 { icon: "🔍", label: "Phiếu kiểm định",  value: `${db.kiemDinh.length} phiếu`, color: "#f59e0b" },
               ].map(c => (
