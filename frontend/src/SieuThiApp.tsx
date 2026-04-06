@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, ReactNode, CSSProperties } from "react";
-import { getCurrentUser, clearCurrentUser } from "./AuthHelper.ts";
+import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Order {
@@ -131,6 +131,21 @@ export default function SieuThiApp() {
   // Forms
   const [orderForm, setOrderForm] = useState({ maLo: "", sanPham: "", soLuong: "", daily: "", kho: "" });
   const [qualityForm, setQualityForm] = useState({ maKiemDinh: "", maLo: "", ngayKiem: "", nguoiKiem: "", ketQua: "Đạt", ghiChu: "" });
+  const [profileForm, setProfileForm] = useState({ hoTen: CURRENT_USER.fullName, sdt: authUser?.soDienThoai || "", email: authUser?.email || "", diaChi: authUser?.diaChi || "" });
+  const [profileErr, setProfileErr] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  async function saveProfile() {
+    if (!profileForm.hoTen) return setProfileErr("Họ tên không được để trống");
+    if (!authUser) return setProfileErr("Phiên đăng nhập hết hạn");
+    setProfileLoading(true); setProfileErr("");
+    try {
+      await apiUpdateProfile({ maTaiKhoan: authUser.maTaiKhoan, hoTen: profileForm.hoTen, soDienThoai: profileForm.sdt, email: profileForm.email, diaChi: profileForm.diaChi });
+      setModal(null);
+    } catch (e: unknown) {
+      setProfileErr(e instanceof Error ? e.message : "Lỗi cập nhật");
+    } finally { setProfileLoading(false); }
+  }
 
   const loadAll = useCallback(() => {
     const uid = CURRENT_USER.id;
@@ -208,7 +223,7 @@ export default function SieuThiApp() {
             </div>
           </div>
         </div>
-        <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+        <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }} onClick={() => setModal("profile")}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 36, height: 36, background: `linear-gradient(135deg,${C.accent},${C.primary})`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>🛒</div>
             <div>
@@ -454,6 +469,45 @@ export default function SieuThiApp() {
             <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
             <PrimaryBtn onClick={addQuality}>Lưu kiểm định</PrimaryBtn>
           </div>
+        </Modal>
+      )}
+
+      {modal === "profile" && (
+        <Modal title="Thông tin cá nhân" onClose={() => setModal(null)}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+            <div style={{ width: 60, height: 60, background: `linear-gradient(135deg,${C.accent},${C.primary})`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>🛒</div>
+          </div>
+          {[["Họ tên", CURRENT_USER.fullName], ["Vai trò", CURRENT_USER.role], ["Email", authUser?.email || "—"], ["Số điện thoại", authUser?.soDienThoai || "—"], ["Địa chỉ", authUser?.diaChi || "—"]].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f0f0f0" }}>
+              <span style={{ fontSize: 12, color: "#888", fontWeight: 600 }}>{k}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#222" }}>{v}</span>
+            </div>
+          ))}
+          <button onClick={() => setModal("edit-profile")} style={{ width: "100%", marginTop: 16, padding: "10px", background: `linear-gradient(135deg,${C.primary},#1d4ed8)`, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>✏️ Sửa thông tin</button>
+        </Modal>
+      )}
+
+      {modal === "edit-profile" && (
+        <Modal title="Sửa thông tin cá nhân" onClose={() => setModal(null)}>
+          {(() => {
+            const [hoTen, setHoTen] = [profileForm.hoTen, (v: string) => setProfileForm(p => ({ ...p, hoTen: v }))];
+            const [sdt, setSdt]     = [profileForm.sdt,   (v: string) => setProfileForm(p => ({ ...p, sdt: v }))];
+            const [email, setEmail] = [profileForm.email, (v: string) => setProfileForm(p => ({ ...p, email: v }))];
+            const [diaChi, setDiaChi] = [profileForm.diaChi, (v: string) => setProfileForm(p => ({ ...p, diaChi: v }))];
+            return (
+              <>
+                {profileErr && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {profileErr}</div>}
+                <FormField label="Họ tên *"><input style={inp} value={hoTen} onChange={e => setHoTen(e.target.value)} /></FormField>
+                <FormField label="Số điện thoại"><input style={inp} value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
+                <FormField label="Email"><input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
+                <FormField label="Địa chỉ"><input style={inp} value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+                  <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+                  <PrimaryBtn onClick={saveProfile}>{profileLoading ? "Đang lưu…" : "Lưu"}</PrimaryBtn>
+                </div>
+              </>
+            );
+          })()}
         </Modal>
       )}
     </div>

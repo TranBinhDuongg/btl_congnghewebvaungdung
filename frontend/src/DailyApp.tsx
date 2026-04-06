@@ -1,5 +1,5 @@
 import React, { useState, useEffect, CSSProperties, ReactNode } from "react";
-import { getCurrentUser, clearCurrentUser } from "./AuthHelper.ts";
+import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface AgencyUser {
@@ -393,27 +393,65 @@ function QualityModal({ check, onClose, onSave }: {
   );
 }
 
-function UserProfileModal({ user, onClose }: { user: AgencyUser; onClose: () => void }) {
+function UserProfileModal({ user, onClose, onEdit }: { user: AgencyUser; onClose: () => void; onEdit: () => void }) {
   const fields: [string, string][] = [
-    ["Họ tên", user.fullName], ["Tên đăng nhập", user.username],
-    ["Email", user.email], ["Số điện thoại", user.phone],
-    ["Vai trò", user.role], ["Tên đại lý", user.agencyName],
-    ["Mã đại lý", user.agencyCode], ["Tỉnh/TP", user.province],
-    ["Quận/Huyện", user.district], ["Địa chỉ", user.address],
-    ["Ngày tạo", new Date(user.createdAt).toLocaleDateString("vi-VN")], ["ID", user.id],
+    ["Họ tên", user.fullName],
+    ["Tên đăng nhập", user.username],
+    ["Vai trò", user.role],
+    ["Email", user.email],
+    ["Số điện thoại", user.phone],
+    ["Địa chỉ", user.address],
   ];
   return (
     <Modal title="Thông tin cá nhân" onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
         <div style={{ width: 60, height: 60, background: "linear-gradient(135deg,#d97706,#92400e)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>🏢</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 18 }}>
         {fields.map(([k, v]) => (
           <div key={k} style={{ padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
             <div style={{ fontSize: 10, color: "#aaa", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>{k}</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#222", marginTop: 2 }}>{v}</div>
           </div>
         ))}
+      </div>
+      <button onClick={onEdit} style={{ width: "100%", padding: "10px", background: "linear-gradient(135deg,#d97706,#92400e)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>✏️ Sửa thông tin</button>
+    </Modal>
+  );
+}
+
+function EditProfileModal({ user, onClose, onSaved }: { user: AgencyUser; onClose: () => void; onSaved: (u: Partial<AgencyUser>) => void }) {
+  const authUser = getCurrentUser();
+  const [hoTen, setHoTen] = useState(user.fullName);
+  const [sdt, setSdt] = useState(user.phone);
+  const [email, setEmail] = useState(user.email);
+  const [diaChi, setDiaChi] = useState(user.address);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    if (!hoTen) return setErr("Họ tên không được để trống");
+    if (!authUser) return setErr("Phiên đăng nhập hết hạn");
+    setLoading(true); setErr("");
+    try {
+      await apiUpdateProfile({ maTaiKhoan: authUser.maTaiKhoan, hoTen, soDienThoai: sdt, email, diaChi });
+      onSaved({ fullName: hoTen, phone: sdt, email, address: diaChi });
+      onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi cập nhật");
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <Modal title="Sửa thông tin cá nhân" onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
+      <FormField label="Họ tên *"><input style={inp} value={hoTen} onChange={e => setHoTen(e.target.value)} /></FormField>
+      <FormField label="Số điện thoại"><input style={inp} value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
+      <FormField label="Email"><input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
+      <FormField label="Địa chỉ"><input style={inp} value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu"}</PrimaryBtn>
       </div>
     </Modal>
   );
@@ -432,7 +470,7 @@ const PAGE_TITLES: Record<Section, string> = {
   dashboard: "Bảng điều khiển", orders: "Quản lý đơn hàng",
   inventory: "Quản lý kho", quality: "Kiểm định chất lượng", reports: "Báo cáo thống kê",
 };
-type ModalType = "receipt" | "receipt-edit" | "warehouse" | "warehouse-edit" | "quality" | "quality-edit" | "profile" | null;
+type ModalType = "receipt" | "receipt-edit" | "warehouse" | "warehouse-edit" | "quality" | "quality-edit" | "profile" | "edit-profile" | null;
 
 export default function DailyApp() {
   const [section, setSection] = useState<Section>("dashboard");
@@ -451,7 +489,14 @@ export default function DailyApp() {
     }
   }, []);
 
-  const user: AgencyUser = { ...EMPTY_USER, fullName: authUser?.tenHienThi || "", username: authUser?.username || "", email: authUser?.email || "" };
+  const [userInfo, setUserInfo] = useState<Partial<AgencyUser>>({
+    fullName: authUser?.tenHienThi || "",
+    username: authUser?.username || "",
+    email: authUser?.email || "",
+    phone: authUser?.soDienThoai || "",
+    address: authUser?.diaChi || "",
+  });
+  const user: AgencyUser = { ...EMPTY_USER, ...userInfo };
 
   function handleSaveReceipt(d: Partial<ImportReceipt>) {
     if (modal === "receipt-edit" && editTarget) {
@@ -563,7 +608,8 @@ export default function DailyApp() {
       {(modal === "receipt" || modal === "receipt-edit") && <ReceiptModal receipt={modal === "receipt-edit" ? editTarget as ImportReceipt : null} warehouses={warehouses} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveReceipt} />}
       {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveWarehouse} />}
       {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveQuality} />}
-      {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} />}
+      {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} onEdit={() => setModal("edit-profile")} />}
+      {modal === "edit-profile" && <EditProfileModal user={user} onClose={() => setModal(null)} onSaved={(u) => setUserInfo(prev => ({ ...prev, ...u }))} />}
     </div>
   );
 }

@@ -381,7 +381,7 @@ export default function AdminApp() {
             <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1a1a2e", marginBottom: 22 }}>🧾 Quản lý đơn hàng</h2>
             <Card>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr><Th>Mã</Th><Th>Người đặt</Th><Th>Đại lý</Th><Th>Sản phẩm</Th><Th>SL</Th><Th>Trạng thái</Th></tr></thead>
+                <thead><tr><Th>Mã</Th><Th>Người đặt</Th><Th>Đại lý</Th><Th>Sản phẩm</Th><Th>Số lượng</Th><Th>Trạng thái</Th></tr></thead>
                 <tbody>{db.orders.length === 0 ? <EmptyRow cols={6} /> : db.orders.map((o, i) => (
                   <TrHover key={i}><Td mono>{o.ma || o.maPhieu || o.uid || "—"}</Td><Td>{o.nguoi || "—"}</Td><Td>{o.daily || "—"}</Td>
                   <Td><span style={{ fontWeight: 600 }}>{o.sanPham || "—"}</span></Td><Td>{o.soLuong}</Td>

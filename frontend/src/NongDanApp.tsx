@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getCurrentUser, clearCurrentUser } from "./AuthHelper.ts";
+import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface User {
@@ -262,29 +262,67 @@ function ReportsSection({ farms, batches, orders }: { farms: Farm[]; batches: Ba
 }
 
 // ─── User Profile Modal ───────────────────────────────────────────────────────
-function UserProfileModal({ user, onClose }: { user: User; onClose: () => void }) {
+function UserProfileModal({ user, onClose, onEdit }: { user: User; onClose: () => void; onEdit: () => void }) {
   const fields: [string, string][] = [
-    ["Họ tên", user.fullName], ["Tên đăng nhập", user.username],
-    ["Email", user.email], ["Số điện thoại", user.phone],
-    ["Vai trò", user.role], ["Tỉnh/TP", user.province],
-    ["Quận/Huyện", user.district], ["Địa chỉ", user.address],
-    ["Tên trang trại", user.farmName], ["Diện tích", `${user.farmArea} ha`],
-    ["Loại nông sản", user.cropType], ["Chứng nhận", user.certification],
-    ["Ngày tạo", new Date(user.createdAt).toLocaleDateString("vi-VN")],
-    ["Mã người dùng", user.id],
+    ["Họ tên", user.fullName],
+    ["Tên đăng nhập", user.username],
+    ["Vai trò", user.role],
+    ["Email", user.email],
+    ["Số điện thoại", user.phone],
+    ["Địa chỉ", user.address],
   ];
   return (
     <Modal title="Thông tin cá nhân" onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
         <div style={{ width: 64, height: 64, background: "linear-gradient(135deg,#4caf50,#1a472a)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>👤</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 18 }}>
         {fields.map(([k, v]) => (
           <div key={k} style={{ padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
             <div style={{ fontSize: 10, color: "#aaa", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>{k}</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#222", marginTop: 2 }}>{v}</div>
           </div>
         ))}
+      </div>
+      <button onClick={onEdit} style={{ width: "100%", padding: "10px", background: "linear-gradient(135deg,#4caf50,#1a472a)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>✏️ Sửa thông tin</button>
+    </Modal>
+  );
+}
+
+function EditProfileModal({ user, onClose, onSaved }: { user: User; onClose: () => void; onSaved: (updated: Partial<User>) => void }) {
+  const authUser = getCurrentUser();
+  const [hoTen, setHoTen] = useState(user.fullName);
+  const [sdt, setSdt] = useState(user.phone);
+  const [email, setEmail] = useState(user.email);
+  const [diaChi, setDiaChi] = useState(user.address);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    if (!hoTen) return setErr("Họ tên không được để trống");
+    if (!authUser) return setErr("Phiên đăng nhập hết hạn");
+    setLoading(true); setErr("");
+    try {
+      await apiUpdateProfile({ maTaiKhoan: authUser.maTaiKhoan, hoTen, soDienThoai: sdt, email, diaChi });
+      onSaved({ fullName: hoTen, phone: sdt, email, address: diaChi });
+      onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi cập nhật");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal title="Sửa thông tin cá nhân" onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
+      <FormField label="Họ tên *"><input style={inputStyle} value={hoTen} onChange={e => setHoTen(e.target.value)} /></FormField>
+      <FormField label="Số điện thoại"><input style={inputStyle} value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
+      <FormField label="Email"><input style={inputStyle} type="email" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
+      <FormField label="Địa chỉ"><input style={inputStyle} value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+        <Btn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu"}</Btn>
       </div>
     </Modal>
   );
@@ -362,6 +400,7 @@ export default function NongDanApp() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [showProfile, setShowProfile] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [modal, setModal] = useState<null | "new-farm" | "new-batch" | "edit-farm" | "edit-batch">(null);
   const [editTarget, setEditTarget] = useState<Farm | Batch | null>(null);
 
@@ -372,13 +411,15 @@ export default function NongDanApp() {
     }
   }, []);
 
-  const user: User = {
-    ...EMPTY_USER,
+  const [userInfo, setUserInfo] = useState<Partial<User>>({
     fullName: authUser?.tenHienThi || "",
     username: authUser?.username || "",
     email: authUser?.email || "",
-    soDienThoai: authUser?.soDienThoai || "",
-  } as User;
+    phone: authUser?.soDienThoai || "",
+    address: authUser?.diaChi || "",
+  });
+
+  const user: User = { ...EMPTY_USER, ...userInfo } as User;
 
   function handleDeleteFarm(id: string) {
     if (window.confirm("Xóa trang trại này?")) setFarms(f => f.filter(x => x.id !== id));
@@ -468,7 +509,8 @@ export default function NongDanApp() {
         {section === "reports"   && <ReportsSection farms={farms} batches={batches} orders={orders} />}
       </main>
 
-      {showProfile && <UserProfileModal user={user} onClose={() => setShowProfile(false)} />}
+      {showProfile && <UserProfileModal user={user} onClose={() => setShowProfile(false)} onEdit={() => { setShowProfile(false); setShowEditProfile(true); }} />}
+      {showEditProfile && <EditProfileModal user={user} onClose={() => setShowEditProfile(false)} onSaved={(u) => { setUserInfo(prev => ({ ...prev, ...u })); }} />}
       {(modal === "new-farm" || modal === "edit-farm") && <FarmModal farm={editTarget as Farm | null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveFarm} />}
       {(modal === "new-batch" || modal === "edit-batch") && <BatchModal batch={editTarget as Batch | null} farms={farms} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveBatch} />}
     </div>

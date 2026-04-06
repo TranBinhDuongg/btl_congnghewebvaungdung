@@ -79,4 +79,23 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = { login, register, resetPassword };
+const updateProfile = async (req, res) => {
+  const { maTaiKhoan, hoTen, soDienThoai, email, diaChi } = req.body;
+  if (!maTaiKhoan || !hoTen)
+    return res.status(400).json({ message: 'Thiếu thông tin bắt buộc' });
+  try {
+    const pool = await getPool();
+    await pool.request()
+      .input('MaTaiKhoan',  sql.Int,           maTaiKhoan)
+      .input('HoTen',       sql.NVarChar(100), hoTen.trim())
+      .input('SoDienThoai', sql.NVarChar(20),  soDienThoai || null)
+      .input('Email',       sql.NVarChar(100), email       || null)
+      .input('DiaChi',      sql.NVarChar(255), diaChi      || null)
+      .execute('sp_UpdateProfile');
+    res.json({ message: 'Cập nhật thành công', tenHienThi: hoTen.trim(), soDienThoai, email, diaChi });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { login, register, resetPassword, updateProfile };

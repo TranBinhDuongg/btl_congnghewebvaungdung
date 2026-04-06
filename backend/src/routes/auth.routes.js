@@ -1,39 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { login, register, resetPassword } = require('../controllers/auth.controller');
+const { login, register, resetPassword, updateProfile } = require('../controllers/auth.controller');
 
 router.post('/login', login);
 router.post('/register', register);
-
-/**
- * @swagger
- * /api/auth/login:
- *   post:
- *     summary: Đăng nhập hệ thống
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [accountType, username, password]
- *             properties:
- *               accountType:
- *                 type: string
- *                 enum: [nongdan, daily, sieuthi, admin]
- *               username:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Đăng nhập thành công, trả về thông tin user
- *       401:
- *         description: Sai tên đăng nhập hoặc mật khẩu
- */
-router.post('/login', login);
+router.post('/reset-password', resetPassword);
+router.put('/profile', updateProfile);
 
 module.exports = router;
-
-router.post('/reset-password', resetPassword);
