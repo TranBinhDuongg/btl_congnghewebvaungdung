@@ -54,14 +54,14 @@ function Panel({ children, style }: { children: ReactNode; style?: CSSProperties
   return <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a", ...style }}>{children}</div>;
 }
 function SectionTitle({ children }: { children: ReactNode }) {
-  return <h4 style={{ fontSize: 14, fontWeight: 700, color: "#163d2b", marginBottom: 14, letterSpacing: 0.2 }}>{children}</h4>;
+  return <h4 style={{ fontSize: 14, fontWeight: 700, color: "#431407", marginBottom: 14, letterSpacing: 0.2 }}>{children}</h4>;
 }
 function StyledTable({ headers, children }: { headers: string[]; children: ReactNode }) {
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead><tr>{headers.map(h => (
-          <th key={h} style={{ textAlign: "left", padding: "8px 12px", background: "#f8faf8", color: "#163d2b", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap" }}>{h}</th>
+          <th key={h} style={{ textAlign: "left", padding: "8px 12px", background: "#fffbeb", color: "#431407", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap" }}>{h}</th>
         ))}</tr></thead>
         <tbody>{children}</tbody>
       </table>
@@ -75,7 +75,7 @@ function ActionBtn({ children, onClick, color = "#2563eb" }: { children: ReactNo
   return <button onClick={onClick} style={{ marginRight: 5, padding: "4px 10px", background: color, color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{children}</button>;
 }
 function PrimaryBtn({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
-  return <button onClick={onClick} style={{ padding: "9px 18px", background: "linear-gradient(135deg,#4caf50,#1a6b2a)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 0.3 }}>{children}</button>;
+  return <button onClick={onClick} style={{ padding: "9px 18px", background: "linear-gradient(135deg,#d97706,#92400e)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 0.3 }}>{children}</button>;
 }
 
 // ─── Modal shell ──────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }} onClick={onClose}>
       <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 500, maxWidth: "94vw", maxHeight: "88vh", overflowY: "auto", position: "relative", boxShadow: "0 8px 40px #0003" }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa" }}>✕</button>
-        <h3 style={{ marginBottom: 18, color: "#163d2b", fontWeight: 800, fontSize: 17 }}>{title}</h3>
+        <h3 style={{ marginBottom: 18, color: "#431407", fontWeight: 800, fontSize: 17 }}>{title}</h3>
         {children}
       </div>
     </div>
@@ -108,7 +108,7 @@ function Dashboard({ receipts, quality, inventory, warehouses, onNewReceipt }: {
     { icon: "📥", label: "Phiếu nhập",   value: receipts.length,    accent: "#16a34a" },
     { icon: "🏪", label: "Kho hàng",     value: warehouses.length,  accent: "#2563eb" },
     { icon: "📦", label: "Tổng tồn kho", value: `${totalStock} kg`, accent: "#7c3aed" },
-    { icon: "⚠️", label: "Cảnh báo CL",  value: alerts.length,      accent: "#dc2626" },
+    { icon: "⚠️", label: "Cảnh báo chất lượng",  value: alerts.length,      accent: "#dc2626" },
   ];
   return (
     <div>
@@ -141,7 +141,7 @@ function Dashboard({ receipts, quality, inventory, warehouses, onNewReceipt }: {
           <SectionTitle>🔬 Cảnh báo chất lượng</SectionTitle>
           {alerts.length === 0
             ? <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0", fontSize: 13 }}>Không có cảnh báo</p>
-            : <StyledTable headers={["Mã KĐ", "Lô", "Kết quả", "Ngày", "Ghi chú"]}>
+            : <StyledTable headers={["Mã kiểm định", "Lô", "Kết quả", "Ngày", "Ghi chú"]}>
                 {alerts.map(q => (
                   <tr key={q.maKiemDinh}>
                     <Td><code style={{ fontSize: 11, color: "#888" }}>{q.maKiemDinh}</code></Td>
@@ -164,7 +164,7 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
 }) {
   const [tab, setTab] = useState<"import" | "retail">("import");
   const tabBtn = (id: "import" | "retail", label: string) => (
-    <button onClick={() => setTab(id)} style={{ padding: "7px 18px", borderRadius: 8, border: "1.5px solid", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === id ? "linear-gradient(135deg,#4caf50,#1a6b2a)" : "transparent", color: tab === id ? "#fff" : "#666", borderColor: tab === id ? "transparent" : "#ddd" }}>{label}</button>
+    <button onClick={() => setTab(id)} style={{ padding: "7px 18px", borderRadius: 8, border: "1.5px solid", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === id ? "linear-gradient(135deg,#d97706,#92400e)" : "transparent", color: tab === id ? "#fff" : "#666", borderColor: tab === id ? "transparent" : "#ddd" }}>{label}</button>
   );
   return (
     <div>
@@ -257,7 +257,7 @@ function QualitySection({ quality, onNew, onEdit, onDelete }: {
         <SectionTitle>🔬 Phiếu kiểm định chất lượng</SectionTitle>
         <PrimaryBtn onClick={onNew}>+ Thêm kiểm định</PrimaryBtn>
       </div>
-      <StyledTable headers={["Mã KĐ", "Mã lô", "Ngày kiểm", "Người kiểm", "Kết quả", "Ghi chú", ""]}>
+      <StyledTable headers={["Mã kiểm định", "Mã lô", "Ngày kiểm", "Người kiểm", "Kết quả", "Ghi chú", ""]}>
         {quality.map(q => (
           <tr key={q.maKiemDinh}>
             <Td><code style={{ fontSize: 11, color: "#888" }}>{q.maKiemDinh}</code></Td>
@@ -283,7 +283,7 @@ function ReportsSection({ receipts, retail, inventory, quality }: {
     { icon: "📥", label: "Tổng phiếu nhập", value: receipts.length,    color: "#16a34a" },
     { icon: "🚚", label: "Đã xuất hàng",    value: shipped,            color: "#7c3aed" },
     { icon: "📦", label: "Tổng tồn kho",    value: `${totalStock} kg`, color: "#2563eb" },
-    { icon: "✅", label: "Tỷ lệ đạt CL",    value: `${passRate}%`,     color: "#059669" },
+    { icon: "✅", label: "Tỷ lệ đạt chất lượng",    value: `${passRate}%`,     color: "#059669" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
@@ -405,7 +405,7 @@ function UserProfileModal({ user, onClose }: { user: AgencyUser; onClose: () => 
   return (
     <Modal title="Thông tin cá nhân" onClose={onClose}>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-        <div style={{ width: 60, height: 60, background: "linear-gradient(135deg,#4caf50,#1a472a)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>🏢</div>
+        <div style={{ width: 60, height: 60, background: "linear-gradient(135deg,#d97706,#92400e)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>🏢</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
         {fields.map(([k, v]) => (
@@ -425,7 +425,7 @@ const NAV: { id: Section; label: string; icon: string }[] = [
   { id: "dashboard", label: "Bảng điều khiển",   icon: "🏠" },
   { id: "orders",    label: "Quản lý đơn hàng",  icon: "📋" },
   { id: "inventory", label: "Quản lý kho",        icon: "🏪" },
-  { id: "quality",   label: "Kiểm định CL",       icon: "🔬" },
+  { id: "quality",   label: "Kiểm định chất lượng",       icon: "🔬" },
   { id: "reports",   label: "Báo cáo thống kê",   icon: "📊" },
 ];
 const PAGE_TITLES: Record<Section, string> = {
@@ -493,7 +493,7 @@ export default function DailyApp() {
 
   return (
     <div style={{ fontFamily: "'Be Vietnam Pro','Segoe UI',Tahoma,Geneva,sans-serif", background: "#f4f6f4", minHeight: "100vh" }}>
-      <aside style={{ position: "fixed", left: 0, top: 0, width: 248, height: "100vh", background: "linear-gradient(180deg,#0f2f1a 0%,#0a1f11 100%)", color: "#fff", display: "flex", flexDirection: "column", zIndex: 1000 }}>
+      <aside style={{ position: "fixed", left: 0, top: 0, width: 248, height: "100vh", background: "linear-gradient(180deg,#431407 0%,#1c0a03 100%)", color: "#fff", display: "flex", flexDirection: "column", zIndex: 1000 }}>
         <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 28 }}>🏢</span>
@@ -505,7 +505,7 @@ export default function DailyApp() {
         </div>
         <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }} onClick={() => setModal("profile")}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#4caf50,#1a472a)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>👤</div>
+            <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#d97706,#92400e)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>👤</div>
             <div style={{ overflow: "hidden" }}>
               <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.fullName}</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>{user.agencyName}</div>
@@ -514,7 +514,7 @@ export default function DailyApp() {
         </div>
         <nav style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
           {NAV.map(n => (
-            <button key={n.id} onClick={() => setSection(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 18px", background: section === n.id ? "rgba(76,175,80,0.18)" : "none", border: "none", borderLeft: section === n.id ? "3px solid #4caf50" : "3px solid transparent", color: section === n.id ? "#4caf50" : "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 13, fontWeight: section === n.id ? 700 : 500, textAlign: "left" }}>
+            <button key={n.id} onClick={() => setSection(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 18px", background: section === n.id ? "rgba(217,119,6,0.18)" : "none", border: "none", borderLeft: section === n.id ? "3px solid #d97706" : "3px solid transparent", color: section === n.id ? "#d97706" : "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 13, fontWeight: section === n.id ? 700 : 500, textAlign: "left" }}>
               <span>{n.icon}</span><span>{n.label}</span>
             </button>
           ))}
@@ -529,7 +529,7 @@ export default function DailyApp() {
       <main style={{ marginLeft: 248, padding: "28px 28px 48px", minHeight: "100vh" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
           <div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f2f1a", margin: 0 }}>{PAGE_TITLES[section]}</h2>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#431407", margin: 0 }}>{PAGE_TITLES[section]}</h2>
             <p style={{ fontSize: 12, color: "#aaa", margin: "3px 0 0" }}>Xin chào, {user.fullName} · {user.agencyName}</p>
           </div>
           {headerCtas[section]}
