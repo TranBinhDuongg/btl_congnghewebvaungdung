@@ -405,6 +405,8 @@ export default function NongDanApp() {
   const [editTarget, setEditTarget] = useState<Farm | Batch | null>(null);
 
   const authUser = getCurrentUser();
+  const maNongDan = authUser?.maDoiTuong;
+
   useEffect(() => {
     if (!authUser || authUser.role !== "nongdan") {
       window.location.href = "/login";
@@ -421,9 +423,62 @@ export default function NongDanApp() {
 
   const user: User = { ...EMPTY_USER, ...userInfo } as User;
 
-  function handleDeleteFarm(id: string) {
-    if (window.confirm("Xóa trang trại này?")) setFarms(f => f.filter(x => x.id !== id));
+  // Load trang trại từ API
+  useEffect(() => {
+    if (!maNongDan) return;
+    fetch(`/api/trang-trai/get-by-nong-dan/${maNongDan}`)
+      .then(r => r.json())
+      .then((data: Array<{MaTrangTrai: number; TenTrangTrai: string; DiaChi: string; SoChungNhan: string}>) => {
+        setFarms(data.map(t => ({
+          id: String(t.MaTrangTrai),
+          name: t.TenTrangTrai,
+          address: t.DiaChi || "",
+          cert: t.SoChungNhan || "",
+        })));
+      })
+      .catch(() => {});
+  }, [maNongDan]);
+
+  async function handleDeleteFarm(id: string) {
+    if (!window.confirm("Xóa trang trại này?")) return;
+    try {
+      const res = await fetch(`/api/trang-trai/delete/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      if (json.deleted) {
+        // Xóa hẳn khỏi danh sách
+        setFarms(f => f.filter(x => x.id !== id));
+      } else {
+        // Còn lô hàng → ẩn khỏi danh sách (đã ngừng hoạt động)
+        setFarms(f => f.filter(x => x.id !== id));
+        alert(json.message);
+      }
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Xóa thất bại"); }
   }
+
+  async function handleSaveFarm(data: Partial<Farm>) {
+    try {
+      if (editTarget) {
+        await fetch(`/api/trang-trai/update/${(editTarget as Farm).id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ TenTrangTrai: data.name, DiaChi: data.address, SoChungNhan: data.cert }),
+        });
+        setFarms(fs => fs.map(f => f.id === (editTarget as Farm).id ? { ...f, ...data } : f));
+      } else {
+        const res = await fetch("/api/trang-trai/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ MaNongDan: maNongDan, TenTrangTrai: data.name, DiaChi: data.address, SoChungNhan: data.cert }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message);
+        setFarms(fs => [...fs, { id: String(json.MaTrangTrai), name: data.name || "", address: data.address || "", cert: data.cert }]);
+      }
+      setModal(null); setEditTarget(null);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi lưu trang trại"); }
+  }
+
   function handleDeleteBatch(id: string) {
     if (window.confirm("Xóa lô sản phẩm này?")) setBatches(b => b.filter(x => x.id !== id));
   }
@@ -432,14 +487,6 @@ export default function NongDanApp() {
   }
   function handleShipOrder(id: string) {
     setOrders(os => os.map(o => o.id === id ? { ...o, status: "shipped" } : o));
-  }
-  function handleSaveFarm(data: Partial<Farm>) {
-    if (editTarget) {
-      setFarms(fs => fs.map(f => f.id === (editTarget as Farm).id ? { ...f, ...data } : f));
-    } else {
-      setFarms(fs => [...fs, { id: "F" + Date.now(), name: data.name || "", address: data.address || "", cert: data.cert }]);
-    }
-    setModal(null); setEditTarget(null);
   }
   function handleSaveBatch(data: Partial<Batch>) {
     if (editTarget) {

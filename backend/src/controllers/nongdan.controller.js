@@ -157,10 +157,15 @@ const deleteTrangTrai = async (req, res) => {
   if (!id || id <= 0) return res.status(400).json({ message: 'ID không hợp lệ' });
   try {
     const pool = await getPool();
-    const check = await pool.request().input('MaTrangTrai', sql.Int, id).execute('sp_GetTrangTraiById');
-    if (!check.recordset[0]) return res.status(404).json({ message: 'Không tìm thấy trang trại' });
-    await pool.request().input('MaTrangTrai', sql.Int, id).execute('sp_DeleteTrangTrai');
-    res.json({ message: 'Xóa trang trại thành công' });
+    const result = await pool.request()
+      .input('MaTrangTrai', sql.Int, id)
+      .execute('sp_DeleteTrangTrai');
+    const row = result.recordset?.[0];
+    if (row?.Deleted === 1) {
+      res.json({ message: row.Message, deleted: true });
+    } else {
+      res.json({ message: row?.Message || 'Đã ngừng hoạt động', deleted: false });
+    }
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

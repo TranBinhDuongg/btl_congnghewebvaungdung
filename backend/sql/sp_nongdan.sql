@@ -26,7 +26,7 @@ GO
 
 CREATE OR ALTER PROCEDURE sp_CreateNongDan
     @TenDangNhap NVARCHAR(50),
-    @MatKhauHash NVARCHAR(255),
+    @MatKhau NVARCHAR(255),
     @HoTen NVARCHAR(100),
     @SoDienThoai NVARCHAR(20),
     @Email NVARCHAR(100),
@@ -35,8 +35,8 @@ AS
 BEGIN
     BEGIN TRANSACTION
     BEGIN TRY
-        INSERT INTO TaiKhoan (TenDangNhap, MatKhauHash, LoaiTaiKhoan)
-        VALUES (@TenDangNhap, @MatKhauHash, 'nongdan')
+        INSERT INTO TaiKhoan (TenDangNhap, MatKhau, LoaiTaiKhoan)
+        VALUES (@TenDangNhap, @MatKhau, 'nongdan')
 
         DECLARE @MaTaiKhoan INT = SCOPE_IDENTITY()
 
@@ -107,6 +107,7 @@ AS
 BEGIN
     SELECT * FROM TrangTrai
     WHERE MaNongDan = @MaNongDan
+      AND (TrangThai IS NULL OR TrangThai = N'hoat_dong')
     ORDER BY NgayTao DESC
 END
 GO
@@ -141,6 +142,23 @@ CREATE OR ALTER PROCEDURE sp_DeleteTrangTrai
     @MaTrangTrai INT
 AS
 BEGIN
-    DELETE FROM TrangTrai WHERE MaTrangTrai = @MaTrangTrai
+    SET NOCOUNT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM TrangTrai WHERE MaTrangTrai = @MaTrangTrai)
+    BEGIN
+        RAISERROR(N'Trang trại không tồn tại', 16, 1); RETURN;
+    END
+
+    -- Còn lô hàng → chuyển trạng thái
+    IF EXISTS (SELECT 1 FROM LoNongSan WHERE MaTrangTrai = @MaTrangTrai)
+    BEGIN
+        UPDATE TrangTrai SET TrangThai = N'ngung_hoat_dong' WHERE MaTrangTrai = @MaTrangTrai;
+        SELECT 0 AS Deleted, N'Trang trại còn lô hàng, đã chuyển sang ngừng hoạt động' AS Message;
+    END
+    ELSE
+    BEGIN
+        DELETE FROM TrangTrai WHERE MaTrangTrai = @MaTrangTrai;
+        SELECT 1 AS Deleted, N'Xóa trang trại thành công' AS Message;
+    END
 END
 GO
