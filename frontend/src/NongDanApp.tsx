@@ -22,9 +22,15 @@ export interface Batch {
   status: string;
 }
 export interface Order {
-  id: string; batchId: string; product: string; quantity: number;
-  agentName: string; date: string;
-  status: "pending" | "preparing" | "shipped" | "received" | "accepted";
+  id: string;
+  batchId: string;
+  product: string;
+  quantity: number;
+  agentName: string;
+  date: string;
+  tongGiaTri?: number;
+  ghiChu?: string;
+  status: "chua_nhan" | "da_nhan" | "hoan_thanh" | "da_huy" | "pending" | "accepted" | "shipped";
 }
 export interface KpiData { farms: number; batches: number; orders: number; alerts: number; }
 
@@ -47,6 +53,11 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   tai_trang_trai:    { label: "Tại trang trại",    color: "#15803d", bg: "#dcfce7" },
   da_xuat:           { label: "Đã xuất",           color: "#7c3aed", bg: "#ede9fe" },
   het_hang:          { label: "Hết hàng",          color: "#6b7280", bg: "#f3f4f6" },
+  // Trạng thái đơn hàng từ API
+  chua_nhan:         { label: "Chờ xác nhận",      color: "#b45309", bg: "#fef3c7" },
+  da_nhan:           { label: "Đã xác nhận",       color: "#059669", bg: "#d1fae5" },
+  hoan_thanh:        { label: "Hoàn thành",         color: "#15803d", bg: "#dcfce7" },
+  da_huy:            { label: "Đã hủy",             color: "#6b7280", bg: "#f3f4f6" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -199,30 +210,48 @@ function BatchesSection({ batches, onNew, onEdit, onDelete }: { batches: Batch[]
   );
 }
 
-function OrdersSection({ orders, onAccept, onShip }: { orders: Order[]; onAccept: (id: string) => void; onShip: (id: string) => void }) {
+function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]; onAccept: (id: string) => void; onShip: (id: string) => void; onCancel: (id: string) => void }) {
   return (
     <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-      <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 14 }}>Đơn từ Đại lý gửi đến</h4>
-      <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "Số lượng", "Đại lý", "Ngày tạo", "Trạng thái", "Hành động"]}>
-        {orders.map(o => (
-          <tr key={o.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-            <Td><code style={{ fontSize: 11, color: "#888" }}>{o.id}</code></Td>
-            <Td><span style={{ color: "#888", fontSize: 11 }}>{o.batchId} —</span> <b>{o.product}</b></Td>
-            <Td>{o.quantity} kg</Td><Td>{o.agentName}</Td><Td>{o.date}</Td>
-            <Td><StatusBadge status={o.status} /></Td>
-            <Td>
-              {o.status === "pending"  && <ActionBtn onClick={() => onAccept(o.id)} color="#16a34a">Nhận đơn</ActionBtn>}
-              {o.status === "accepted" && <ActionBtn onClick={() => onShip(o.id)}   color="#7c3aed">Xuất hàng</ActionBtn>}
-            </Td>
-          </tr>
-        ))}
-      </StyledTable>
+      <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 14 }}>Đơn hàng từ Đại lý</h4>
+      {orders.length === 0 ? (
+        <p style={{ color: "#aaa", textAlign: "center", padding: "24px 0" }}>Chưa có đơn hàng nào</p>
+      ) : (
+        <StyledTable headers={["Mã đơn", "Sản phẩm", "Số lượng", "Đại lý", "Ngày đặt", "Trạng thái", "Hành động"]}>
+          {orders.map(o => (
+            <tr key={o.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+              <Td><code style={{ fontSize: 11, color: "#888" }}>{o.id}</code></Td>
+              <Td><b>{o.product || "—"}</b></Td>
+              <Td>{o.quantity > 0 ? `${o.quantity} kg` : "—"}</Td>
+              <Td>{o.agentName}</Td>
+              <Td>{o.date}</Td>
+              <Td><StatusBadge status={o.status} /></Td>
+              <Td>
+                {o.status === "chua_nhan" && (
+                  <>
+                    <ActionBtn onClick={() => onAccept(o.id)} color="#16a34a">✓ Xác nhận</ActionBtn>
+                    <ActionBtn onClick={() => {
+                      if (window.confirm("Hủy đơn hàng này?")) onCancel(o.id);
+                    }} color="#dc2626">✕ Hủy</ActionBtn>
+                  </>
+                )}
+                {o.status === "da_nhan" && (
+                  <ActionBtn onClick={() => onShip(o.id)} color="#7c3aed">📦 Xuất hàng</ActionBtn>
+                )}
+                {(o.status === "hoan_thanh" || o.status === "da_huy") && (
+                  <span style={{ fontSize: 11, color: "#aaa" }}>—</span>
+                )}
+              </Td>
+            </tr>
+          ))}
+        </StyledTable>
+      )}
     </div>
   );
 }
 
 function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) {
-  const exported = orders.filter(o => o.status === "shipped" || o.status === "received");
+  const exported = orders.filter(o => o.status === "hoan_thanh");
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(460px,1fr))", gap: 16 }}>
       <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
@@ -257,7 +286,7 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
 }
 
 function ReportsSection({ farms, batches, orders }: { farms: Farm[]; batches: Batch[]; orders: Order[] }) {
-  const shipped = orders.filter(o => o.status === "shipped" || o.status === "received").reduce((s, o) => s + o.quantity, 0);
+  const shipped = orders.filter(o => o.status === "hoan_thanh").reduce((s, o) => s + o.quantity, 0);
   const cards = [
     { icon: "📦", label: "Tổng lô sản phẩm",  value: `${batches.length} lô`, color: "#16a34a" },
     { icon: "🚚", label: "Đã xuất hàng",       value: `${shipped} kg`,        color: "#7c3aed" },
@@ -545,13 +574,55 @@ export default function NongDanApp() {
     } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi lưu trang trại"); }
   }
 
-  function handleAcceptOrder(id: string) {
-    setOrders(os => os.map(o => o.id === id ? { ...o, status: "accepted" } : o));
+  async function handleAcceptOrder(id: string) {
+    try {
+      const res = await fetch(`/api/don-hang-dai-ly/xac-nhan/${id}`, { method: "PUT" });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.message); }
+      setOrders(os => os.map(o => o.id === id ? { ...o, status: "da_nhan" } : o));
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Xác nhận thất bại"); }
   }
-  function handleShipOrder(id: string) {
-    setOrders(os => os.map(o => o.id === id ? { ...o, status: "shipped" } : o));
+
+  async function handleShipOrder(id: string) {
+    try {
+      const res = await fetch(`/api/don-hang-dai-ly/xuat-don/${id}`, { method: "PUT" });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.message); }
+      setOrders(os => os.map(o => o.id === id ? { ...o, status: "hoan_thanh" } : o));
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Xuất hàng thất bại"); }
   }
-  // Load lô nông sản từ API
+
+  async function handleCancelOrder(id: string) {
+    try {
+      const res = await fetch(`/api/don-hang-dai-ly/huy-don/${id}`, { method: "PUT" });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.message); }
+      setOrders(os => os.map(o => o.id === id ? { ...o, status: "da_huy" } : o));
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Hủy đơn thất bại"); }
+  }
+
+  // Load đơn hàng từ API
+  useEffect(() => {
+    if (!maNongDan) return;
+    fetch(`/api/don-hang-dai-ly/get-by-nong-dan/${maNongDan}`)
+      .then(r => r.json())
+      .then((data: Array<{
+        MaDonHang: number; TrangThai: string; NgayDat: string;
+        TongSoLuong: number; TongGiaTri: number; GhiChu: string;
+        MaDaiLy: number; TenDaiLy: string;
+      }>) => {
+        setOrders(data.map(d => ({
+          id: String(d.MaDonHang),
+          batchId: "",
+          product: "",
+          quantity: d.TongSoLuong || 0,
+          agentName: d.TenDaiLy || "",
+          date: d.NgayDat?.slice(0, 10) || "",
+          tongGiaTri: d.TongGiaTri || 0,
+          ghiChu: d.GhiChu || "",
+          status: (d.TrangThai || "chua_nhan") as Order["status"],
+        })));
+      })
+      .catch(() => {});
+  }, [maNongDan]);
+
   useEffect(() => {
     if (!maNongDan) return;
     fetch(`/api/lo-nong-san/get-by-nong-dan/${maNongDan}`)
@@ -680,7 +751,7 @@ export default function NongDanApp() {
         {section === "dashboard" && <Dashboard farms={farms} batches={batches} orders={orders} />}
         {section === "farms"     && <FarmsSection farms={farms} onNew={() => setModal("new-farm")} onEdit={f => { setEditTarget(f); setModal("edit-farm"); }} onDelete={handleDeleteFarm} />}
         {section === "batches"   && <BatchesSection batches={batches} onNew={() => setModal("new-batch")} onEdit={b => { setEditTarget(b); setModal("edit-batch"); }} onDelete={handleDeleteBatch} />}
-        {section === "orders"    && <OrdersSection orders={orders} onAccept={handleAcceptOrder} onShip={handleShipOrder} />}
+        {section === "orders"    && <OrdersSection orders={orders} onAccept={handleAcceptOrder} onShip={handleShipOrder} onCancel={handleCancelOrder} />}
         {section === "kho"       && <KhoSection batches={batches} orders={orders} />}
         {section === "reports"   && <ReportsSection farms={farms} batches={batches} orders={orders} />}
       </main>

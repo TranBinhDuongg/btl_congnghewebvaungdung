@@ -38,7 +38,18 @@ CREATE OR ALTER PROCEDURE sp_GetDonHangDaiLyByNongDan
     @MaNongDan INT
 AS
 BEGIN
-    SELECT dh.*, dhd.MaDaiLy, dl.TenDaiLy
+    SELECT dh.MaDonHang, dh.TrangThai, dh.NgayDat, dh.NgayGiao,
+           dh.TongSoLuong, dh.TongGiaTri, dh.GhiChu,
+           dhd.MaDaiLy, dl.TenDaiLy,
+           -- Gộp tên sản phẩm từ chi tiết
+           STUFF((
+               SELECT DISTINCT N', ' + sp.TenSanPham
+               FROM ChiTietDonHang ct2
+               JOIN LoNongSan lo2 ON ct2.MaLo = lo2.MaLo
+               JOIN SanPham sp ON lo2.MaSanPham = sp.MaSanPham
+               WHERE ct2.MaDonHang = dh.MaDonHang
+               FOR XML PATH(''), TYPE
+           ).value('.','NVARCHAR(MAX)'), 1, 2, '') AS DanhSachSanPham
     FROM DonHang dh
     JOIN DonHangDaiLy dhd ON dh.MaDonHang = dhd.MaDonHang
     JOIN DaiLy dl ON dhd.MaDaiLy = dl.MaDaiLy
