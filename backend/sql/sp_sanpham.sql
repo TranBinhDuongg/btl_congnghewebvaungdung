@@ -2,7 +2,7 @@
 CREATE OR ALTER PROCEDURE sp_GetAllSanPham
 AS
 BEGIN
-    SELECT MaSanPham, TenSanPham, DonVi, MoTa FROM SanPham
+    SELECT MaSanPham, TenSanPham, DonViTinh, MoTa FROM SanPham ORDER BY TenSanPham
 END
 GO
 
@@ -11,32 +11,32 @@ CREATE OR ALTER PROCEDURE sp_GetSanPhamById
     @MaSanPham INT
 AS
 BEGIN
-    SELECT MaSanPham, TenSanPham, DonVi, MoTa FROM SanPham WHERE MaSanPham = @MaSanPham
+    SELECT MaSanPham, TenSanPham, DonViTinh, MoTa FROM SanPham WHERE MaSanPham = @MaSanPham
 END
 GO
 
 -- sp_CreateSanPham
 CREATE OR ALTER PROCEDURE sp_CreateSanPham
     @TenSanPham NVARCHAR(100),
-    @DonVi NVARCHAR(50),
-    @MoTa NVARCHAR(255)
+    @DonViTinh  NVARCHAR(20),
+    @MoTa       NVARCHAR(255)
 AS
 BEGIN
-    INSERT INTO SanPham (TenSanPham, DonVi, MoTa)
+    INSERT INTO SanPham (TenSanPham, DonViTinh, MoTa)
     OUTPUT INSERTED.MaSanPham
-    VALUES (@TenSanPham, @DonVi, @MoTa)
+    VALUES (@TenSanPham, @DonViTinh, @MoTa)
 END
 GO
 
 -- sp_UpdateSanPham
 CREATE OR ALTER PROCEDURE sp_UpdateSanPham
-    @MaSanPham INT,
+    @MaSanPham  INT,
     @TenSanPham NVARCHAR(100),
-    @DonVi NVARCHAR(50),
-    @MoTa NVARCHAR(255)
+    @DonViTinh  NVARCHAR(20),
+    @MoTa       NVARCHAR(255)
 AS
 BEGIN
-    UPDATE SanPham SET TenSanPham = @TenSanPham, DonVi = @DonVi, MoTa = @MoTa
+    UPDATE SanPham SET TenSanPham = @TenSanPham, DonViTinh = @DonViTinh, MoTa = @MoTa
     WHERE MaSanPham = @MaSanPham
 END
 GO

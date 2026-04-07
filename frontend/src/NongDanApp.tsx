@@ -9,8 +9,17 @@ export interface User {
 }
 export interface Farm { id: string; name: string; address: string; cert?: string; }
 export interface Batch {
-  id: string; farmName: string; product: string; quantity: number;
-  expiry: string; harvest?: string; status: string;
+  id: string;
+  farmId: string;
+  farmName: string;
+  maSanPham: number;
+  product: string;
+  soLuongBanDau: number;
+  soLuongHienTai: number;
+  expiry: string;
+  harvest?: string;
+  soChungNhan?: string;
+  status: string;
 }
 export interface Order {
   id: string; batchId: string; product: string; quantity: number;
@@ -28,13 +37,16 @@ const EMPTY_USER: User = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  pending:   { label: "Chờ xử lý",    color: "#b45309", bg: "#fef3c7" },
-  preparing: { label: "Chuẩn bị",     color: "#1d4ed8", bg: "#dbeafe" },
-  shipped:   { label: "Đã xuất",      color: "#7c3aed", bg: "#ede9fe" },
-  received:  { label: "Đã nhận",      color: "#059669", bg: "#d1fae5" },
-  accepted:  { label: "Đã nhận đơn",  color: "#059669", bg: "#d1fae5" },
-  active:    { label: "Đang lưu kho", color: "#15803d", bg: "#dcfce7" },
-  low:       { label: "Sắp hết",      color: "#dc2626", bg: "#fee2e2" },
+  pending:           { label: "Chờ xử lý",       color: "#b45309", bg: "#fef3c7" },
+  preparing:         { label: "Chuẩn bị",         color: "#1d4ed8", bg: "#dbeafe" },
+  shipped:           { label: "Đã xuất",           color: "#7c3aed", bg: "#ede9fe" },
+  received:          { label: "Đã nhận",           color: "#059669", bg: "#d1fae5" },
+  accepted:          { label: "Đã nhận đơn",       color: "#059669", bg: "#d1fae5" },
+  active:            { label: "Đang lưu kho",      color: "#15803d", bg: "#dcfce7" },
+  low:               { label: "Sắp hết",           color: "#dc2626", bg: "#fee2e2" },
+  tai_trang_trai:    { label: "Tại trang trại",    color: "#15803d", bg: "#dcfce7" },
+  da_xuat:           { label: "Đã xuất",           color: "#7c3aed", bg: "#ede9fe" },
+  het_hang:          { label: "Hết hàng",          color: "#6b7280", bg: "#f3f4f6" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -168,12 +180,17 @@ function FarmsSection({ farms, onNew, onEdit, onDelete }: { farms: Farm[]; onNew
 function BatchesSection({ batches, onNew, onEdit, onDelete }: { batches: Batch[]; onNew: () => void; onEdit: (b: Batch) => void; onDelete: (id: string) => void }) {
   return (
     <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-      <StyledTable headers={["Mã lô", "Trang trại", "Sản phẩm", "Số lượng", "Hạn dùng", "Trạng thái", ""]}>
+      <StyledTable headers={["Mã lô", "Trang trại", "Sản phẩm", "Số lượng", "Thu hoạch", "Hạn dùng", "Chứng nhận", "Trạng thái", ""]}>
         {batches.map(b => (
           <tr key={b.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
             <Td><code style={{ fontSize: 11, color: "#888" }}>{b.id}</code></Td>
-            <Td>{b.farmName}</Td><Td><b>{b.product}</b></Td><Td>{b.quantity} kg</Td>
-            <Td>{b.expiry}</Td><Td><StatusBadge status={b.status} /></Td>
+            <Td>{b.farmName}</Td>
+            <Td><b>{b.product}</b></Td>
+            <Td>{b.soLuongBanDau} kg</Td>
+            <Td>{b.harvest || "—"}</Td>
+            <Td>{b.expiry}</Td>
+            <Td><span style={{ fontSize: 11, color: "#888" }}>{b.soChungNhan || "—"}</span></Td>
+            <Td><StatusBadge status={b.status} /></Td>
             <Td><ActionBtn onClick={() => onEdit(b)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDelete(b.id)} color="#dc2626">Xóa</ActionBtn></Td>
           </tr>
         ))}
@@ -211,12 +228,12 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
       <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
         <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 6 }}>📥 Tồn kho</h4>
         <p style={{ fontSize: 12, color: "#aaa", marginBottom: 14 }}>Lô sản phẩm đang lưu kho</p>
-        <StyledTable headers={["Mã lô", "Sản phẩm", "Số lượng", "Trang trại", "Hạn dùng", "Trạng thái"]}>
+        <StyledTable headers={["Mã lô", "Sản phẩm", "Trang trại", "Hạn dùng", "Trạng thái"]}>
           {batches.map(b => (
             <tr key={b.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
               <Td><code style={{ fontSize: 11, color: "#888" }}>{b.id}</code></Td>
-              <Td><b>{b.product}</b></Td><Td>{b.quantity} kg</Td><Td>{b.farmName}</Td><Td>{b.expiry}</Td>
-              <Td><StatusBadge status={b.quantity > 50 ? "active" : "low"} /></Td>
+              <Td><b>{b.product}</b></Td><Td>{b.farmName}</Td><Td>{b.expiry}</Td>
+              <Td><StatusBadge status={b.status} /></Td>
             </tr>
           ))}
         </StyledTable>
@@ -240,13 +257,11 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
 }
 
 function ReportsSection({ farms, batches, orders }: { farms: Farm[]; batches: Batch[]; orders: Order[] }) {
-  const totalProd = batches.reduce((s, b) => s + b.quantity, 0);
   const shipped = orders.filter(o => o.status === "shipped" || o.status === "received").reduce((s, o) => s + o.quantity, 0);
   const cards = [
-    { icon: "🌱", label: "Tổng sản lượng",    value: `${totalProd} kg`, color: "#16a34a" },
-    { icon: "🚚", label: "Đã xuất hàng",       value: `${shipped} kg`,  color: "#7c3aed" },
-    { icon: "📦", label: "Tồn kho ước tính",   value: `${totalProd - shipped} kg`, color: "#2563eb" },
-    { icon: "🏡", label: "Số trang trại",       value: farms.length,     color: "#d97706" },
+    { icon: "📦", label: "Tổng lô sản phẩm",  value: `${batches.length} lô`, color: "#16a34a" },
+    { icon: "🚚", label: "Đã xuất hàng",       value: `${shipped} kg`,        color: "#7c3aed" },
+    { icon: "🏡", label: "Số trang trại",       value: farms.length,           color: "#d97706" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
@@ -354,25 +369,76 @@ function FarmModal({ farm, onClose, onSave }: { farm: Farm | null; onClose: () =
 }
 
 function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; farms: Farm[]; onClose: () => void; onSave: (d: Partial<Batch>) => void }) {
-  const [farmName, setFarmName] = useState(batch?.farmName || farms[0]?.name || "");
-  const [product, setProduct] = useState(batch?.product || "");
-  const [quantity, setQuantity] = useState(String(batch?.quantity || ""));
+  const isEdit = !!batch;
+  const [farmId, setFarmId] = useState(batch?.farmId || farms[0]?.id || "");
+  const [sanPhams, setSanPhams] = useState<{MaSanPham: number; TenSanPham: string}[]>([]);
+  const [maSanPham, setMaSanPham] = useState(batch?.maSanPham || 0);
+  const [soLuong, setSoLuong] = useState(String(batch?.soLuongBanDau || ""));
   const [expiry, setExpiry] = useState(batch?.expiry || "");
   const [harvest, setHarvest] = useState(batch?.harvest || "");
+  const [soChungNhan, setSoChungNhan] = useState(batch?.soChungNhan || "");
+  const [trangThai, setTrangThai] = useState(batch?.status || "tai_trang_trai");
+
+  useEffect(() => {
+    if (isEdit) return; // khi sửa không cần load sản phẩm
+    fetch("/api/san-pham/get-all")
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setSanPhams(list);
+        if (!maSanPham && list.length > 0) setMaSanPham(list[0].MaSanPham);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
-    <Modal title={batch ? "Chỉnh sửa lô sản phẩm" : "Đăng ký lô sản phẩm mới"} onClose={onClose}>
-      <FormField label="Trang trại *">
-        <select style={inputStyle} value={farmName} onChange={e => setFarmName(e.target.value)}>
-          {farms.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
-        </select>
-      </FormField>
-      <FormField label="Sản phẩm *"><input style={inputStyle} value={product} onChange={e => setProduct(e.target.value)} placeholder="VD: Cải thảo, Cà chua…" /></FormField>
-      <FormField label="Số lượng (kg) *"><input style={inputStyle} type="number" value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="200" /></FormField>
-      <FormField label="Ngày thu hoạch"><input style={inputStyle} type="date" value={harvest} onChange={e => setHarvest(e.target.value)} /></FormField>
-      <FormField label="Hạn sử dụng *"><input style={inputStyle} type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
+    <Modal title={isEdit ? "Chỉnh sửa lô sản phẩm" : "Đăng ký lô sản phẩm mới"} onClose={onClose}>
+      {!isEdit ? (
+        <>
+          <FormField label="Trang trại *">
+            <select style={inputStyle} value={farmId} onChange={e => setFarmId(e.target.value)}>
+              {farms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Sản phẩm *">
+            <select style={inputStyle} value={maSanPham} onChange={e => setMaSanPham(Number(e.target.value))}>
+              {sanPhams.map(s => <option key={s.MaSanPham} value={s.MaSanPham}>{s.TenSanPham}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Sản lượng ban đầu *">
+            <input style={inputStyle} type="number" min="0.01" step="0.01" value={soLuong} onChange={e => setSoLuong(e.target.value)} placeholder="VD: 500" />
+          </FormField>
+          <FormField label="Ngày thu hoạch"><input style={inputStyle} type="date" value={harvest} onChange={e => setHarvest(e.target.value)} /></FormField>
+          <FormField label="Hạn sử dụng *"><input style={inputStyle} type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
+          <FormField label="Số chứng nhận lô"><input style={inputStyle} value={soChungNhan} onChange={e => setSoChungNhan(e.target.value)} placeholder="VD: VG-2024-001" /></FormField>
+        </>
+      ) : (
+        <>
+          <div style={{ padding: "10px 12px", background: "#f8faf8", borderRadius: 8, marginBottom: 14, fontSize: 13, color: "#555" }}>
+            <b>{batch.product}</b> — {batch.farmName}<br />
+            <span style={{ fontSize: 12, color: "#aaa" }}>Sản lượng ban đầu: {batch.soLuongBanDau} | Hiện tại: {batch.soLuongHienTai}</span>
+          </div>
+          <FormField label="Hạn sử dụng"><input style={inputStyle} type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
+          <FormField label="Trạng thái">
+            <select style={inputStyle} value={trangThai} onChange={e => setTrangThai(e.target.value)}>
+              <option value="tai_trang_trai">Tại trang trại</option>
+              <option value="da_xuat">Đã xuất</option>
+              <option value="het_hang">Hết hàng</option>
+            </select>
+          </FormField>
+        </>
+      )}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
         <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-        <Btn onClick={() => { if (!product || !quantity || !expiry) return alert("Vui lòng điền đủ thông tin"); onSave({ farmName, product, quantity: Number(quantity), expiry, harvest }); }}>Lưu</Btn>
+        <Btn onClick={() => {
+          if (!isEdit && (!farmId || !maSanPham || !soLuong || !expiry)) return alert("Vui lòng điền đủ thông tin bắt buộc");
+          const sp = sanPhams.find(s => s.MaSanPham === maSanPham);
+          if (!isEdit) {
+            onSave({ farmId, farmName: farms.find(f => f.id === farmId)?.name || "", maSanPham, product: sp?.TenSanPham || "", soLuongBanDau: Number(soLuong), soLuongHienTai: Number(soLuong), expiry, harvest, soChungNhan });
+          } else {
+            onSave({ expiry, status: trangThai });
+          }
+        }}>Lưu</Btn>
       </div>
     </Modal>
   );
@@ -479,22 +545,85 @@ export default function NongDanApp() {
     } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi lưu trang trại"); }
   }
 
-  function handleDeleteBatch(id: string) {
-    if (window.confirm("Xóa lô sản phẩm này?")) setBatches(b => b.filter(x => x.id !== id));
-  }
   function handleAcceptOrder(id: string) {
     setOrders(os => os.map(o => o.id === id ? { ...o, status: "accepted" } : o));
   }
   function handleShipOrder(id: string) {
     setOrders(os => os.map(o => o.id === id ? { ...o, status: "shipped" } : o));
   }
-  function handleSaveBatch(data: Partial<Batch>) {
-    if (editTarget) {
-      setBatches(bs => bs.map(b => b.id === (editTarget as Batch).id ? { ...b, ...data } : b));
-    } else {
-      setBatches(bs => [...bs, { id: "B" + Date.now(), farmName: data.farmName || "", product: data.product || "", quantity: Number(data.quantity) || 0, expiry: data.expiry || "", status: "active" }]);
-    }
-    setModal(null); setEditTarget(null);
+  // Load lô nông sản từ API
+  useEffect(() => {
+    if (!maNongDan) return;
+    fetch(`/api/lo-nong-san/get-by-nong-dan/${maNongDan}`)
+      .then(r => r.json())
+      .then((data: Array<{MaLo: number; MaTrangTrai: number; TenTrangTrai: string; MaSanPham: number; TenSanPham: string; SoLuongBanDau: number; SoLuongHienTai: number; NgayThuHoach: string; HanSuDung: string; SoChungNhanLo: string; TrangThai: string}>) => {
+        setBatches(data.map(lo => ({
+          id: String(lo.MaLo),
+          farmId: String(lo.MaTrangTrai),
+          farmName: lo.TenTrangTrai || "",
+          maSanPham: lo.MaSanPham,
+          product: lo.TenSanPham || "",
+          soLuongBanDau: lo.SoLuongBanDau || 0,
+          soLuongHienTai: lo.SoLuongHienTai || 0,
+          harvest: lo.NgayThuHoach?.slice(0, 10) || "",
+          expiry: lo.HanSuDung?.slice(0, 10) || "",
+          soChungNhan: lo.SoChungNhanLo || "",
+          status: lo.TrangThai || "tai_trang_trai",
+        })));
+      })
+      .catch(() => {});
+  }, [maNongDan]);
+
+  async function handleSaveBatch(data: Partial<Batch>) {
+    try {
+      if (editTarget) {
+        await fetch(`/api/lo-nong-san/update/${(editTarget as Batch).id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ HanSuDung: data.expiry, TrangThai: data.status }),
+        });
+        setBatches(bs => bs.map(b => b.id === (editTarget as Batch).id ? { ...b, ...data } : b));
+      } else {
+        const res = await fetch("/api/lo-nong-san/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            MaTrangTrai: Number(data.farmId),
+            MaSanPham: data.maSanPham,
+            SoLuongBanDau: data.soLuongBanDau,
+            NgayThuHoach: data.harvest || null,
+            HanSuDung: data.expiry,
+            SoChungNhanLo: data.soChungNhan || null,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message);
+        setBatches(bs => [...bs, {
+          id: String(json.MaLo),
+          farmId: data.farmId || "",
+          farmName: data.farmName || "",
+          maSanPham: data.maSanPham || 0,
+          product: data.product || "",
+          soLuongBanDau: data.soLuongBanDau || 0,
+          soLuongHienTai: data.soLuongBanDau || 0,
+          harvest: data.harvest || "",
+          expiry: data.expiry || "",
+          soChungNhan: data.soChungNhan || "",
+          status: "tai_trang_trai",
+        }]);
+      }
+      setModal(null); setEditTarget(null);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi lưu lô"); }
+  }
+
+  async function handleDeleteBatch(id: string) {
+    if (!window.confirm("Xóa lô sản phẩm này?")) return;
+    try {
+      const res = await fetch(`/api/lo-nong-san/delete/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      setBatches(b => b.filter(x => x.id !== id));
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Xóa thất bại"); }
   }
 
   const headerCtas: Partial<Record<Section, React.ReactNode>> = {
