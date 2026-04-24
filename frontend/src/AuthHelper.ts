@@ -57,6 +57,18 @@ export function clearCurrentUser(): void {
   localStorage.removeItem(USER_KEY);
 }
 
+const MSG_MAP: Record<string, string> = {
+  'Sai ten dang nhap hoac mat khau': 'Sai tên đăng nhập hoặc mật khẩu',
+  'Tai khoan da bi khoa': 'Tài khoản đã bị khóa',
+  'Loai tai khoan khong dung': 'Loại tài khoản không đúng',
+  'Loi he thong, vui long thu lai': 'Lỗi hệ thống, vui lòng thử lại',
+  'Thieu ten dang nhap hoac mat khau': 'Thiếu tên đăng nhập hoặc mật khẩu',
+};
+
+function mapMsg(msg: string): string {
+  return MSG_MAP[msg] ?? msg;
+}
+
 export async function apiLogin(payload: LoginPayload): Promise<AuthUser> {
   const res = await fetch(`${API}/api/auth/login`, {
     method: "POST",
@@ -64,7 +76,7 @@ export async function apiLogin(payload: LoginPayload): Promise<AuthUser> {
     body: JSON.stringify({ username: payload.username, password: payload.password, role: payload.role }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
+  if (!res.ok) throw new Error(mapMsg(data.message) || "Đăng nhập thất bại");
   const user = data as AuthUser;
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   return user;
@@ -87,7 +99,7 @@ export async function apiRegister(payload: RegisterPayload): Promise<void> {
     }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Đăng ký thất bại");
+  if (!res.ok) throw new Error(mapMsg(data.message) || "Đăng ký thất bại");
 }
 
 export async function apiResetPassword(payload: ResetPasswordPayload): Promise<void> {
@@ -97,7 +109,7 @@ export async function apiResetPassword(payload: ResetPasswordPayload): Promise<v
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Đặt lại mật khẩu thất bại");
+  if (!res.ok) throw new Error(mapMsg(data.message) || "Đặt lại mật khẩu thất bại");
 }
 
 export async function apiUpdateProfile(payload: {

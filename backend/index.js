@@ -64,8 +64,17 @@ app.use('/api/KhoHang',          require('./src/routes/khohang.routes'));
 
 // Serve React frontend
 const frontendBuild = path.join(__dirname, '../frontend/build');
-app.use(express.static(frontendBuild));
+app.use(express.static(frontendBuild, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    } else if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+  }
+}));
 app.use((_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.sendFile(path.join(frontendBuild, 'index.html'));
 });
 

@@ -2,29 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/donhang_sieuthi.controller');
 
-/**
- * @swagger
- * tags:
- *   name: DonHangSieuThi
- *   description: API đơn hàng siêu thị -> đại lý
- */
-
-/**
- * @swagger
- * /api/don-hang-sieu-thi/dai-ly/{maDaiLy}:
- *   get:
- *     summary: Lấy đơn hàng siêu thị theo đại lý
- *     tags: [DonHangSieuThi]
- *     parameters:
- *       - in: path
- *         name: maDaiLy
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Danh sách đơn hàng
- */
+router.get('/get-all', ctrl.getAll);
 router.get('/dai-ly/:maDaiLy', ctrl.getByDaiLy);
 
 /**

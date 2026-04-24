@@ -231,3 +231,16 @@ BEGIN
     UPDATE DonHang SET TrangThai = @TrangThai WHERE MaDonHang = @MaDonHang
 END
 GO
+
+-- 16. Lấy tất cả đơn hàng siêu thị (dành cho Admin)
+CREATE OR ALTER PROCEDURE sp_GetAllDonHangSieuThi
+AS
+BEGIN
+    SELECT dh.*, dst.MaSieuThi, st.TenSieuThi, dst.MaDaiLy, dl.TenDaiLy
+    FROM DonHang dh
+    JOIN DonHangSieuThi dst ON dh.MaDonHang = dst.MaDonHang
+    JOIN SieuThi st ON dst.MaSieuThi = st.MaSieuThi
+    JOIN DaiLy dl ON dst.MaDaiLy = dl.MaDaiLy
+    ORDER BY dh.NgayDat DESC
+END
+GO

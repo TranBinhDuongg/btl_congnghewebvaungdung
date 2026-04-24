@@ -1,5 +1,13 @@
 const { getPool, sql } = require('../config/db');
 
+const getAll = async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request().execute('sp_GetAllDonHangSieuThi');
+    res.json(result.recordset);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 const getByDaiLy = async (req, res) => {
   try {
     const pool = await getPool();
@@ -36,4 +44,4 @@ const updateTrangThai = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getByDaiLy, getById, updateTrangThai };
+module.exports = { getAll, getByDaiLy, getById, updateTrangThai };

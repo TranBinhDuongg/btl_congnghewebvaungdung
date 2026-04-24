@@ -26,9 +26,13 @@ const login = async (req, res) => {
       diaChi:      row.DiaChi,
     });
   } catch (err) {
-    if (err.message?.includes('Sai') || err.message?.includes('khóa') || err.message?.includes('không đúng'))
-      return res.status(401).json({ message: err.message });
-    res.status(500).json({ message: err.message });
+    // mssql có thể đặt state ở nhiều chỗ khác nhau tùy version
+    const state = err.state ?? err.originalError?.info?.state ?? err.originalError?.state ?? 0;
+    const number = err.number ?? err.originalError?.info?.number ?? err.originalError?.number ?? 0;
+    if (state === 2) return res.status(401).json({ message: 'Tai khoan da bi khoa' });
+    if (state === 3) return res.status(401).json({ message: 'Loai tai khoan khong dung' });
+    if (state === 1 || number === 50000) return res.status(401).json({ message: 'Sai ten dang nhap hoac mat khau' });
+    res.status(500).json({ message: 'Loi he thong, vui long thu lai' });
   }
 };
 

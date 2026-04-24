@@ -20,18 +20,18 @@ BEGIN
 
   IF @MaTaiKhoan IS NULL
   BEGIN
-    RAISERROR(N'Sai tên đăng nhập hoặc mật khẩu', 16, 1); RETURN;
+    RAISERROR(N'Sai ten dang nhap hoac mat khau', 16, 1); RETURN;
   END
 
   IF @TrangThai != N'hoat_dong'
   BEGIN
-    RAISERROR(N'Tài khoản đã bị khóa', 16, 1); RETURN;
+    RAISERROR(N'Tai khoan da bi khoa', 16, 2); RETURN;
   END
 
   -- Kiểm tra role có khớp không
   IF @LoaiTaiKhoan != @LoaiYeuCau
   BEGIN
-    RAISERROR(N'Loại tài khoản không đúng', 16, 1); RETURN;
+    RAISERROR(N'Loai tai khoan khong dung', 16, 3); RETURN;
   END
 
   UPDATE TaiKhoan SET LanDangNhapCuoi = SYSDATETIME() WHERE MaTaiKhoan = @MaTaiKhoan;
