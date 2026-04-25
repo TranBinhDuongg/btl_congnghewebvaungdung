@@ -163,48 +163,69 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
   onAcceptRetail: (id: string) => void; onShipRetail: (id: string) => void;
 }) {
   const [tab, setTab] = useState<"import" | "retail">("import");
-  const tabBtn = (id: "import" | "retail", label: string) => (
-    <button onClick={() => setTab(id)} style={{ padding: "7px 18px", borderRadius: 8, border: "1.5px solid", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === id ? "linear-gradient(135deg,#d97706,#92400e)" : "transparent", color: tab === id ? "#fff" : "#666", borderColor: tab === id ? "transparent" : "#ddd" }}>{label}</button>
-  );
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 8 }}>{tabBtn("import", "📥 Nhập hàng")}{tabBtn("retail", "📤 Xuất hàng")}</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 4, gap: 4 }}>
+          {(["import", "retail"] as const).map(id => (
+            <button key={id} onClick={() => setTab(id)}
+              style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700,
+                background: tab === id ? "linear-gradient(135deg,#d97706,#92400e)" : "transparent",
+                color: tab === id ? "#fff" : "#666", boxShadow: tab === id ? "0 2px 8px #d9770640" : "none" }}>
+              {id === "import" ? "📥 Phiếu nhập" : "📤 Phiếu xuất"}
+            </button>
+          ))}
+        </div>
         {tab === "import" && <PrimaryBtn onClick={onNewReceipt}>+ Tạo phiếu nhập</PrimaryBtn>}
       </div>
+
       {tab === "import" && (
         <Panel>
           <SectionTitle>Phiếu nhập hàng từ Nông dân</SectionTitle>
-          <StyledTable headers={["Mã phiếu", "Lô — Sản phẩm", "SL", "Nông dân", "Kho nhập", "Ngày nhập", "TT", ""]}>
-            {receipts.map(r => (
-              <tr key={r.maPhieu}>
-                <Td><code style={{ fontSize: 11, color: "#888" }}>{r.maPhieu}</code></Td>
-                <Td><span style={{ color: "#aaa", fontSize: 11 }}>{r.maLo} —</span> <b>{r.sanPham}</b></Td>
-                <Td>{r.soLuong} kg</Td><Td>{r.tenNong}</Td><Td>{r.khoNhapName || r.khoNhap}</Td><Td>{r.ngayNhap}</Td>
-                <Td><StatusBadge status={r.status} /></Td>
-                <Td><ActionBtn onClick={() => onEditReceipt(r)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDeleteReceipt(r.maPhieu)} color="#dc2626">Xóa</ActionBtn></Td>
-              </tr>
-            ))}
-          </StyledTable>
+          {receipts.length === 0
+            ? <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0", fontSize: 13 }}>Chưa có phiếu nhập nào</p>
+            : <StyledTable headers={["Mã đơn", "Nông dân", "Tổng SL", "Ghi chú", "Ngày đặt", "Trạng thái", ""]}>
+                {receipts.map(r => (
+                  <tr key={r.maPhieu}>
+                    <Td><code style={{ fontSize: 11, color: "#888" }}>#{r.maPhieu}</code></Td>
+                    <Td>{r.tenNong || "—"}</Td>
+                    <Td>{r.soLuong > 0 ? `${r.soLuong.toLocaleString()} kg` : "—"}</Td>
+                    <Td style={{ color: "#888", maxWidth: 180 }}>{r.sanPham || "—"}</Td>
+                    <Td>{r.ngayNhap || "—"}</Td>
+                    <Td><StatusBadge status={r.status} /></Td>
+                    <Td>
+                      <ActionBtn onClick={() => onEditReceipt(r)} color="#2563eb">Sửa</ActionBtn>
+                      <ActionBtn onClick={() => onDeleteReceipt(r.maPhieu)} color="#dc2626">Xóa</ActionBtn>
+                    </Td>
+                  </tr>
+                ))}
+              </StyledTable>
+          }
         </Panel>
       )}
+
       {tab === "retail" && (
         <Panel>
-          <SectionTitle>Đơn hàng từ Siêu thị</SectionTitle>
-          <StyledTable headers={["Mã phiếu", "Lô — Sản phẩm", "SL", "Siêu thị", "Ngày tạo", "TT", ""]}>
-            {retail.map(r => (
-              <tr key={r.maPhieu}>
-                <Td><code style={{ fontSize: 11, color: "#888" }}>{r.maPhieu}</code></Td>
-                <Td><span style={{ color: "#aaa", fontSize: 11 }}>{r.maLo} —</span> <b>{r.sanPham}</b></Td>
-                <Td>{r.soLuong} kg</Td><Td>{r.sieu_thi}</Td><Td>{r.ngayTao}</Td>
-                <Td><StatusBadge status={r.status} /></Td>
-                <Td>
-                  {r.status === "pending"  && <ActionBtn onClick={() => onAcceptRetail(r.maPhieu)} color="#16a34a">Xác nhận</ActionBtn>}
-                  {r.status === "received" && <ActionBtn onClick={() => onShipRetail(r.maPhieu)}   color="#7c3aed">Xuất hàng</ActionBtn>}
-                </Td>
-              </tr>
-            ))}
-          </StyledTable>
+          <SectionTitle>Phiếu xuất hàng cho Siêu thị</SectionTitle>
+          {retail.length === 0
+            ? <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0", fontSize: 13 }}>Chưa có phiếu xuất nào</p>
+            : <StyledTable headers={["Mã đơn", "Siêu thị", "Tổng SL", "Ghi chú", "Ngày đặt", "Trạng thái", ""]}>
+                {retail.map(r => (
+                  <tr key={r.maPhieu}>
+                    <Td><code style={{ fontSize: 11, color: "#888" }}>#{r.maPhieu}</code></Td>
+                    <Td>{r.sieu_thi || "—"}</Td>
+                    <Td>{r.soLuong > 0 ? `${r.soLuong.toLocaleString()} kg` : "—"}</Td>
+                    <Td style={{ color: "#888", maxWidth: 180 }}>{r.sanPham || "—"}</Td>
+                    <Td>{r.ngayTao || "—"}</Td>
+                    <Td><StatusBadge status={r.status} /></Td>
+                    <Td>
+                      {r.status === "pending"  && <ActionBtn onClick={() => onAcceptRetail(r.maPhieu)} color="#16a34a">Xác nhận</ActionBtn>}
+                      {r.status === "received" && <ActionBtn onClick={() => onShipRetail(r.maPhieu)}   color="#7c3aed">Xuất hàng</ActionBtn>}
+                    </Td>
+                  </tr>
+                ))}
+              </StyledTable>
+          }
         </Panel>
       )}
     </div>
@@ -483,11 +504,81 @@ export default function DailyApp() {
   const [editTarget, setEditTarget] = useState<ImportReceipt | Warehouse | QualityCheck | null>(null);
 
   const authUser = getCurrentUser();
+  const maDaiLy = authUser?.maDoiTuong;
+
   useEffect(() => {
     if (!authUser || authUser.role !== "daily") {
       window.location.href = "/login";
+      return;
     }
-  }, []);
+    if (!maDaiLy) return;
+
+    // Load kho hàng của đại lý
+    fetch(`/api/kho/dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        // dedupe by MaKho vì SP join với TonKho có thể trả nhiều row cùng kho
+        const seen = new Set<string>();
+        const khos = data.reduce((acc: Warehouse[], w: any) => {
+          const key = String(w.MaKho);
+          if (!seen.has(key)) {
+            seen.add(key);
+            acc.push({ maKho: key, tenKho: w.TenKho, diaChi: w.DiaChi || "", soDienThoai: "" });
+          }
+          return acc;
+        }, []);
+        setWarehouses(khos);
+      })
+      .catch(console.error);
+
+    // Load tồn kho theo đại lý
+    fetch(`/api/xuat-nhap-kho/ton-kho/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setInventory(data.map(b => ({
+          maLo: String(b.MaLo),
+          sanPham: b.TenSanPham || "",
+          soLuong: Number(b.SoLuong) || 0,
+          ngayNhap: b.CapNhatCuoi ? new Date(b.CapNhatCuoi).toLocaleDateString("vi-VN") : "",
+          status: Number(b.SoLuong) <= 0 ? "out" : Number(b.SoLuong) < 10 ? "low" : "in_stock",
+        })));
+      })
+      .catch(console.error);
+
+    // Load đơn hàng nhập từ nông dân
+    fetch(`/api/don-hang-dai-ly/get-by-dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setReceipts(data.map(d => ({
+          maPhieu: String(d.MaDonHang),
+          maLo: "",
+          sanPham: d.GhiChu || `Đơn #${d.MaDonHang}`,
+          soLuong: Number(d.TongSoLuong) || 0,
+          tenNong: d.TenNongDan || "",
+          khoNhap: "",
+          khoNhapName: "",
+          ngayNhap: d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "",
+          status: (d.TrangThai as ImportReceipt["status"]) || "created",
+        })));
+      })
+      .catch(console.error);
+
+    // Load đơn hàng xuất từ siêu thị
+    fetch(`/api/don-hang-sieu-thi/dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setRetail(data.map(d => ({
+          maPhieu: String(d.MaDonHang),
+          maLo: "",
+          sanPham: d.GhiChu || `Đơn #${d.MaDonHang}`,
+          soLuong: Number(d.TongSoLuong) || 0,
+          sieu_thi: d.TenSieuThi || "",
+          ngayTao: d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "",
+          status: (d.TrangThai as RetailOrder["status"]) || "pending",
+        })));
+      })
+      .catch(console.error);
+  }, [maDaiLy]);
 
   const [userInfo, setUserInfo] = useState<Partial<AgencyUser>>({
     fullName: authUser?.tenHienThi || "",
