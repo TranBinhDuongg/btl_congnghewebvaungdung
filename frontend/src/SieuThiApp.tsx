@@ -1,7 +1,24 @@
 import { useState, useEffect, useCallback, ReactNode, CSSProperties } from "react";
 import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
+const API = process.env.REACT_APP_API_URL || "";
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+async function apiFetch(path: string, opts?: RequestInit) {
+  const res = await fetch(`${API}${path}`, { headers: { "Content-Type": "application/json" }, ...opts });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Lỗi server");
+  return data;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
+// API order type (từ DB)
+interface ApiDonHang {
+  MaDonHang: number; LoaiDon: string; TrangThai: string; GhiChu?: string;
+  NgayDat: string; TongSoLuong?: number; TongGiaTri?: number;
+  MaSieuThi?: number; TenSieuThi?: string; MaDaiLy?: number; TenDaiLy?: string;
+}
+
 interface Order {
   uid: string; maPhieu: string; maLo: string; sanPham: string; soLuong: number;
   khoNhap?: string; toDaily?: string; toDailyAgency?: string;
@@ -126,10 +143,16 @@ export default function SieuThiApp() {
   const [db, setDb] = useState<DB>({ orders: [], lohang: [], kiemDinh: [] });
   const [incoming, setIncoming] = useState<RetailOrder[]>([]);
   const [modal, setModal] = useState<string | null>(null);
+  // API orders state
+  const [apiOrders, setApiOrders] = useState<ApiDonHang[]>([]);
+  const [apiOrdersLoading, setApiOrdersLoading] = useState(false);
+  const [apiOrdersErr, setApiOrdersErr] = useState("");
   const [editTarget, setEditTarget] = useState<Order | LoHang | null>(null);
 
   // Forms
-  const [orderForm, setOrderForm] = useState({ maLo: "", sanPham: "", soLuong: "", daily: "", kho: "" });
+  const [orderForm, setOrderForm] = useState({ maDaiLy: "", ghiChu: "" });
+  const [chiTietForm, setChiTietForm] = useState({ maDonHang: "", maLo: "", soLuong: "", donGia: "" });
+  const [editTrangThaiForm, setEditTrangThaiForm] = useState({ maDonHang: 0, trangThai: "" });
   const [qualityForm, setQualityForm] = useState({ maKiemDinh: "", maLo: "", ngayKiem: "", nguoiKiem: "", ketQua: "Đạt", ghiChu: "" });
   const [profileForm, setProfileForm] = useState({ hoTen: CURRENT_USER.fullName, sdt: authUser?.soDienThoai || "", email: authUser?.email || "", diaChi: authUser?.diaChi || "" });
   const [profileErr, setProfileErr] = useState("");
@@ -147,6 +170,64 @@ export default function SieuThiApp() {
     } finally { setProfileLoading(false); }
   }
 
+  const loadApiOrders = useCallback(async () => {
+    if (!authUser?.maDoiTuong) return;
+    setApiOrdersLoading(true); setApiOrdersErr("");
+    try {
+      const data = await apiFetch(`/api/sieuthi/donhang/sieu-thi/${authUser.maDoiTuong}`);
+      setApiOrders(data);
+    } catch (e: unknown) {
+      setApiOrdersErr(e instanceof Error ? e.message : "Lỗi tải đơn hàng");
+    } finally { setApiOrdersLoading(false); }
+  }, [authUser?.maDoiTuong]);
+
+  const taoDonHang = async () => {
+    if (!orderForm.maDaiLy) return alert("Vui lòng nhập mã đại lý");
+    try {
+      await apiFetch("/api/sieuthi/donhang/tao-don-hang", {
+        method: "POST",
+        body: JSON.stringify({ MaSieuThi: authUser?.maDoiTuong, MaDaiLy: +orderForm.maDaiLy, GhiChu: orderForm.ghiChu || null }),
+      });
+      setOrderForm({ maDaiLy: "", ghiChu: "" });
+      setModal(null);
+      loadApiOrders();
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi tạo đơn"); }
+  };
+
+  const themChiTiet = async () => {
+    const { maDonHang, maLo, soLuong, donGia } = chiTietForm;
+    if (!maDonHang || !maLo || !soLuong || !donGia) return alert("Vui lòng nhập đầy đủ thông tin");
+    try {
+      await apiFetch("/api/sieuthi/donhang/them-chi-tiet", {
+        method: "POST",
+        body: JSON.stringify({ MaDonHang: +maDonHang, MaLo: +maLo, SoLuong: +soLuong, DonGia: +donGia }),
+      });
+      setChiTietForm({ maDonHang: "", maLo: "", soLuong: "", donGia: "" });
+      setModal(null);
+      loadApiOrders();
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi thêm chi tiết"); }
+  };
+
+  const huyDonHang = async (id: number) => {
+    if (!window.confirm("Hủy đơn hàng này?")) return;
+    try {
+      await apiFetch(`/api/sieuthi/donhang/huy-don-hang/${id}`, { method: "PUT" });
+      loadApiOrders();
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi hủy đơn"); }
+  };
+
+  const capNhatTrangThai = async () => {
+    if (!editTrangThaiForm.trangThai) return alert("Chọn trạng thái");
+    try {
+      await apiFetch(`/api/sieuthi/donhang/${editTrangThaiForm.maDonHang}/trang-thai`, {
+        method: "PUT",
+        body: JSON.stringify({ TrangThai: editTrangThaiForm.trangThai }),
+      });
+      setModal(null);
+      loadApiOrders();
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi cập nhật"); }
+  };
+
   const loadAll = useCallback(() => {
     const uid = CURRENT_USER.id;
     setDb({
@@ -160,7 +241,7 @@ export default function SieuThiApp() {
     } catch { /* empty */ }
   }, [CURRENT_USER.id]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { loadAll(); loadApiOrders(); }, [loadAll, loadApiOrders]);
 
   const save = (newDb: DB) => {
     const uid = CURRENT_USER.id;
@@ -169,19 +250,6 @@ export default function SieuThiApp() {
   };
 
   // Actions
-  const addOrder = () => {
-    const { maLo, sanPham, soLuong, daily, kho } = orderForm;
-    if (!maLo || !sanPham || !soLuong) return alert("Vui lòng nhập đầy đủ thông tin");
-    const uid = "R" + Date.now();
-    const p: Order = { uid, maPhieu: uid, maLo, sanPham, soLuong: +soLuong, khoNhap: kho, toDaily: daily, toDailyAgency: daily, fromSieuthiId: CURRENT_USER.id, status: "pending", ngayTao: new Date().toLocaleString() };
-    save({ ...db, orders: [...db.orders, p] });
-    const retail = JSON.parse(localStorage.getItem("retail_orders") || "[]");
-    retail.push(p);
-    localStorage.setItem("retail_orders", JSON.stringify(retail));
-    setOrderForm({ maLo: "", sanPham: "", soLuong: "", daily: "", kho: "" });
-    setModal(null);
-  };
-
   const deleteOrder = (uid: string) => {
     if (!window.confirm("Xóa đơn hàng này?")) return;
     save({ ...db, orders: db.orders.filter(o => o.uid !== uid) });
@@ -262,7 +330,7 @@ export default function SieuThiApp() {
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16, marginBottom: 24 }}>
               {[
-                { icon: "📋", label: "Tổng đơn hàng",   value: db.orders.length,   color: C.primary },
+                { icon: "📋", label: "Tổng đơn hàng",   value: apiOrders.length,   color: C.primary },
                 { icon: "📦", label: "Tồn kho",          value: `${totalStock} `, color: "#7c3aed" },
                 { icon: "⚠️", label: "Cảnh báo chất lượng",      value: qualityAlerts,      color: "#dc2626" },
                 { icon: "🏪", label: "Số lô hàng",       value: db.lohang.length,   color: "#059669" },
@@ -278,17 +346,19 @@ export default function SieuThiApp() {
             </div>
             <Panel>
               <SectionTitle>📋 Đơn hàng gần đây</SectionTitle>
-              <StyledTable headers={["Mã phiếu", "Mã lô — Sản phẩm", "Số lượng", "Đại lý", "Ngày tạo", "Trạng thái"]}>
-                {[...db.orders].reverse().slice(0, 8).map(o => (
-                  <tr key={o.uid}>
-                    <Td><code style={{ fontSize: 11, color: "#888" }}>{o.maPhieu}</code></Td>
-                    <Td><span style={{ color: "#aaa", fontSize: 11 }}>{o.maLo} —</span> <b>{o.sanPham}</b></Td>
-                    <Td>{o.soLuong}</Td><Td>{o.toDaily || "—"}</Td>
-                    <Td style={{ color: "#aaa", fontSize: 11 }}>{o.ngayTao}</Td>
-                    <Td><StatusBadge status={o.status} /></Td>
+              <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ngày đặt", "Trạng thái"]}>
+                {[...apiOrders].slice(0, 8).map(o => (
+                  <tr key={o.MaDonHang}>
+                    <Td><code style={{ fontSize: 11, color: "#888" }}>#{o.MaDonHang}</code></Td>
+                    <Td>{o.TenDaiLy || "—"}</Td>
+                    <Td>{o.TongSoLuong ?? "—"}</Td>
+                    <Td>{o.TongGiaTri ? o.TongGiaTri.toLocaleString("vi-VN") + " ₫" : "—"}</Td>
+                    <Td style={{ color: "#aaa", fontSize: 11 }}>{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                    <Td><StatusBadge status={o.TrangThai} /></Td>
                   </tr>
                 ))}
               </StyledTable>
+              {apiOrders.length === 0 && !apiOrdersLoading && <p style={{ textAlign: "center", color: "#aaa", padding: "16px 0" }}>Chưa có đơn hàng</p>}
             </Panel>
           </div>
         )}
@@ -297,22 +367,29 @@ export default function SieuThiApp() {
         {section === "orders" && (
           <Panel>
             <SectionTitle>Danh sách đơn đặt hàng</SectionTitle>
-            <StyledTable headers={["Mã phiếu", "Mã lô", "Sản phẩm", "Số lượng", "Đại lý", "Kho", "Ngày tạo", "Trạng thái", ""]}>
-              {db.orders.map(o => (
-                <tr key={o.uid}>
-                  <Td><code style={{ fontSize: 11, color: "#888" }}>{o.maPhieu}</code></Td>
-                  <Td>{o.maLo}</Td><Td><b>{o.sanPham}</b></Td><Td>{o.soLuong}</Td>
-                  <Td>{o.toDaily || "—"}</Td><Td>{o.khoNhap || "—"}</Td>
-                  <Td style={{ color: "#aaa", fontSize: 11 }}>{o.ngayTao}</Td>
-                  <Td><StatusBadge status={o.status} /></Td>
+            {apiOrdersLoading && <p style={{ color: "#aaa", padding: "12px 0" }}>Đang tải...</p>}
+            {apiOrdersErr && <p style={{ color: "#dc2626", padding: "8px 0" }}>{apiOrdersErr}</p>}
+            <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ghi chú", "Ngày đặt", "Trạng thái", ""]}>
+              {apiOrders.map(o => (
+                <tr key={o.MaDonHang}>
+                  <Td><code style={{ fontSize: 11, color: "#888" }}>#{o.MaDonHang}</code></Td>
+                  <Td>{o.TenDaiLy || "—"}</Td>
+                  <Td>{o.TongSoLuong ?? "—"}</Td>
+                  <Td>{o.TongGiaTri ? o.TongGiaTri.toLocaleString("vi-VN") + " ₫" : "—"}</Td>
+                  <Td style={{ color: "#888", fontSize: 12 }}>{o.GhiChu || "—"}</Td>
+                  <Td style={{ color: "#aaa", fontSize: 11 }}>{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                  <Td><StatusBadge status={o.TrangThai} /></Td>
                   <Td>
-                    <ActionBtn onClick={() => { setEditTarget(o); setModal("editOrder"); }} color={C.primary}>Sửa</ActionBtn>
-                    <ActionBtn onClick={() => deleteOrder(o.uid)} color="#dc2626">Xóa</ActionBtn>
+                    <ActionBtn onClick={() => { setEditTrangThaiForm({ maDonHang: o.MaDonHang, trangThai: o.TrangThai }); setModal("editTrangThai"); }} color={C.primary}>Sửa TT</ActionBtn>
+                    <ActionBtn onClick={() => { setChiTietForm({ ...chiTietForm, maDonHang: String(o.MaDonHang) }); setModal("chiTiet"); }} color="#059669">+ Chi tiết</ActionBtn>
+                    {o.TrangThai !== "da_huy" && o.TrangThai !== "hoan_thanh" && (
+                      <ActionBtn onClick={() => huyDonHang(o.MaDonHang)} color="#dc2626">Hủy</ActionBtn>
+                    )}
                   </Td>
                 </tr>
               ))}
             </StyledTable>
-            {db.orders.length === 0 && <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0" }}>Chưa có đơn hàng</p>}
+            {apiOrders.length === 0 && !apiOrdersLoading && <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0" }}>Chưa có đơn hàng</p>}
           </Panel>
         )}
 
@@ -397,38 +474,49 @@ export default function SieuThiApp() {
       {/* Modals */}
       {modal === "order" && (
         <Modal title="🛒 Tạo đơn đặt hàng" onClose={() => setModal(null)}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
-            <FormField label="Mã lô *"><input style={inp} value={orderForm.maLo} onChange={e => setOrderForm({ ...orderForm, maLo: e.target.value })} placeholder="ML001" /></FormField>
-            <FormField label="Số lượng *"><input style={inp} type="number" value={orderForm.soLuong} onChange={e => setOrderForm({ ...orderForm, soLuong: e.target.value })} placeholder="100" /></FormField>
-          </div>
-          <FormField label="Sản phẩm *"><input style={inp} value={orderForm.sanPham} onChange={e => setOrderForm({ ...orderForm, sanPham: e.target.value })} placeholder="Tên sản phẩm" /></FormField>
-          <FormField label="Đại lý"><input style={inp} value={orderForm.daily} onChange={e => setOrderForm({ ...orderForm, daily: e.target.value })} placeholder="Tên đại lý" /></FormField>
-          <FormField label="Kho nhận"><input style={inp} value={orderForm.kho} onChange={e => setOrderForm({ ...orderForm, kho: e.target.value })} placeholder="Kho..." /></FormField>
+          <FormField label="Mã đại lý *">
+            <input style={inp} type="number" value={orderForm.maDaiLy} onChange={e => setOrderForm({ ...orderForm, maDaiLy: e.target.value })} placeholder="Nhập mã đại lý" />
+          </FormField>
+          <FormField label="Ghi chú">
+            <input style={inp} value={orderForm.ghiChu} onChange={e => setOrderForm({ ...orderForm, ghiChu: e.target.value })} placeholder="Tuỳ chọn" />
+          </FormField>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
             <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-            <PrimaryBtn onClick={addOrder}>Tạo đơn</PrimaryBtn>
+            <PrimaryBtn onClick={taoDonHang}>Tạo đơn</PrimaryBtn>
           </div>
         </Modal>
       )}
 
-      {modal === "editOrder" && editTarget && (
-        <Modal title="✏️ Sửa đơn hàng" onClose={() => setModal(null)}>
-          {(() => {
-            const o = editTarget as Order;
-            return (
-              <>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
-                  <FormField label="Mã lô"><input style={inp} value={o.maLo} onChange={e => setEditTarget({ ...o, maLo: e.target.value })} /></FormField>
-                  <FormField label="Số lượng"><input style={inp} type="number" value={o.soLuong} onChange={e => setEditTarget({ ...o, soLuong: +e.target.value })} /></FormField>
-                </div>
-                <FormField label="Sản phẩm"><input style={inp} value={o.sanPham} onChange={e => setEditTarget({ ...o, sanPham: e.target.value })} /></FormField>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-                  <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-                  <PrimaryBtn onClick={() => { save({ ...db, orders: db.orders.map(x => x.uid === o.uid ? { ...x, ...o } : x) }); setModal(null); }}>Lưu</PrimaryBtn>
-                </div>
-              </>
-            );
-          })()}
+      {modal === "chiTiet" && (
+        <Modal title="➕ Thêm chi tiết đơn hàng" onClose={() => setModal(null)}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+            <FormField label="Mã đơn hàng *"><input style={inp} type="number" value={chiTietForm.maDonHang} onChange={e => setChiTietForm({ ...chiTietForm, maDonHang: e.target.value })} /></FormField>
+            <FormField label="Mã lô *"><input style={inp} type="number" value={chiTietForm.maLo} onChange={e => setChiTietForm({ ...chiTietForm, maLo: e.target.value })} placeholder="Mã lô nông sản" /></FormField>
+            <FormField label="Số lượng *"><input style={inp} type="number" value={chiTietForm.soLuong} onChange={e => setChiTietForm({ ...chiTietForm, soLuong: e.target.value })} placeholder="0" /></FormField>
+            <FormField label="Đơn giá *"><input style={inp} type="number" value={chiTietForm.donGia} onChange={e => setChiTietForm({ ...chiTietForm, donGia: e.target.value })} placeholder="0" /></FormField>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+            <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+            <PrimaryBtn onClick={themChiTiet}>Thêm</PrimaryBtn>
+          </div>
+        </Modal>
+      )}
+
+      {modal === "editTrangThai" && (
+        <Modal title="✏️ Cập nhật trạng thái" onClose={() => setModal(null)}>
+          <FormField label="Trạng thái">
+            <select style={inp} value={editTrangThaiForm.trangThai} onChange={e => setEditTrangThaiForm({ ...editTrangThaiForm, trangThai: e.target.value })}>
+              <option value="chua_nhan">Chưa nhận</option>
+              <option value="da_nhan">Đã nhận</option>
+              <option value="dang_xu_ly">Đang xử lý</option>
+              <option value="hoan_thanh">Hoàn thành</option>
+              <option value="da_huy">Đã hủy</option>
+            </select>
+          </FormField>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+            <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+            <PrimaryBtn onClick={capNhatTrangThai}>Lưu</PrimaryBtn>
+          </div>
         </Modal>
       )}
 

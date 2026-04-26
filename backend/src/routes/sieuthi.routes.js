@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../controllers/sieuthi.controller');
+const dhCtrl = require('../controllers/donhang_sieuthi.controller');
 
 /**
  * @swagger
@@ -148,7 +149,7 @@ router.delete('/:maSieuThi', ctrl.remove);
  *       201:
  *         description: Tạo thành công
  */
-router.post('/donhang/tao-don-hang', ctrl.taoDonHang);
+router.post('/donhang/tao-don-hang', dhCtrl.taoDonHang);
 
 /**
  * @swagger
@@ -176,7 +177,7 @@ router.post('/donhang/tao-don-hang', ctrl.taoDonHang);
  *       201:
  *         description: Thêm thành công
  */
-router.post('/donhang/them-chi-tiet', ctrl.themChiTiet);
+router.post('/donhang/them-chi-tiet', dhCtrl.themChiTiet);
 
 /**
  * @swagger
@@ -204,7 +205,7 @@ router.post('/donhang/them-chi-tiet', ctrl.themChiTiet);
  *       200:
  *         description: Cập nhật thành công
  */
-router.put('/donhang/cap-nhat-chi-tiet', ctrl.capNhatChiTiet);
+router.put('/donhang/cap-nhat-chi-tiet', dhCtrl.capNhatChiTiet);
 
 /**
  * @swagger
@@ -228,7 +229,7 @@ router.put('/donhang/cap-nhat-chi-tiet', ctrl.capNhatChiTiet);
  *       200:
  *         description: Xóa thành công
  */
-router.delete('/donhang/xoa-chi-tiet', ctrl.xoaChiTiet);
+router.delete('/donhang/xoa-chi-tiet', dhCtrl.xoaChiTiet);
 
 /**
  * @swagger
@@ -246,7 +247,7 @@ router.delete('/donhang/xoa-chi-tiet', ctrl.xoaChiTiet);
  *       200:
  *         description: Nhận thành công
  */
-router.put('/donhang/nhan-hang/:id', ctrl.nhanDonHang);
+router.put('/donhang/nhan-hang/:id', dhCtrl.nhanDonHang);
 
 /**
  * @swagger
@@ -264,7 +265,7 @@ router.put('/donhang/nhan-hang/:id', ctrl.nhanDonHang);
  *       200:
  *         description: Hủy thành công
  */
-router.put('/donhang/huy-don-hang/:id', ctrl.huyDonHang);
+router.put('/donhang/huy-don-hang/:id', dhCtrl.huyDonHang);
 
 /**
  * @swagger
@@ -282,7 +283,7 @@ router.put('/donhang/huy-don-hang/:id', ctrl.huyDonHang);
  *       200:
  *         description: Chi tiết đơn hàng
  */
-router.get('/donhang/:id', ctrl.getDonHangById);
+router.get('/donhang/:id', dhCtrl.getById);
 
 /**
  * @swagger
@@ -300,6 +301,8 @@ router.get('/donhang/:id', ctrl.getDonHangById);
  *       200:
  *         description: Danh sách đơn hàng
  */
-router.get('/donhang/sieu-thi/:maSieuThi', ctrl.getDonHangBySieuThi);
+router.get('/donhang/sieu-thi/:maSieuThi', dhCtrl.getDonHangBySieuThi);
+
+router.put('/donhang/:id/trang-thai', dhCtrl.updateTrangThai);
 
 module.exports = router;
