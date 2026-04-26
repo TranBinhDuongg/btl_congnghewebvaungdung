@@ -21,7 +21,8 @@ export interface QualityCheck {
 }
 export interface RetailOrder {
   maPhieu: string; maLo: string; sanPham: string; soLuong: number;
-  sieu_thi: string; ngayTao: string; status: "pending" | "shipped" | "received";
+  sieu_thi: string; ngayTao: string;
+  status: "pending" | "shipped" | "received" | "chua_nhan" | "da_nhan" | "dang_xu_ly" | "hoan_thanh" | "da_huy";
 }
 
 const EMPTY_USER: AgencyUser = {
@@ -233,8 +234,8 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
                     <Td>{r.ngayTao || "—"}</Td>
                     <Td><StatusBadge status={r.status} /></Td>
                     <Td>
-                      {r.status === "pending"  && <ActionBtn onClick={() => onAcceptRetail(r.maPhieu)} color="#16a34a">Xác nhận</ActionBtn>}
-                      {r.status === "received" && <ActionBtn onClick={() => onShipRetail(r.maPhieu)}   color="#7c3aed">Xuất hàng</ActionBtn>}
+                      {(r.status === "pending" || r.status === "chua_nhan") && <ActionBtn onClick={() => onAcceptRetail(r.maPhieu)} color="#16a34a">Xác nhận</ActionBtn>}
+                      {(r.status === "received" || r.status === "da_nhan")  && <ActionBtn onClick={() => onShipRetail(r.maPhieu)}   color="#7c3aed">Xuất hàng</ActionBtn>}
                     </Td>
                   </tr>
                 ))}
@@ -795,6 +796,52 @@ export default function DailyApp() {
       .catch(console.error);
   }
 
+  function reloadRetail() {
+    if (!maDaiLy) return;
+    fetch(`/api/don-hang-sieu-thi/dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setRetail(data.map(d => ({
+          maPhieu: String(d.MaDonHang),
+          maLo: "",
+          sanPham: d.GhiChu || "",
+          soLuong: Number(d.TongSoLuong) || 0,
+          sieu_thi: d.TenSieuThi || "",
+          ngayTao: d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "",
+          status: (d.TrangThai as RetailOrder["status"]) || "pending",
+        })));
+      })
+      .catch(console.error);
+  }
+
+  async function handleAcceptRetail(id: string) {
+    try {
+      const res = await fetch(`/api/don-hang-sieu-thi/update-trang-thai/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ TrangThai: "da_nhan" }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      reloadRetail();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Lỗi xác nhận đơn");
+    }
+  }
+
+  async function handleShipRetail(id: string) {
+    try {
+      const res = await fetch(`/api/don-hang-sieu-thi/update-trang-thai/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ TrangThai: "hoan_thanh" }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      reloadRetail();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Lỗi xuất hàng");
+    }
+  }
+
   async function handleDeleteReceipt(id: string) {
     if (!window.confirm("Xóa đơn nhập này?")) return;
     try {
@@ -881,8 +928,8 @@ export default function DailyApp() {
             onNewReceipt={() => setModal("receipt")}
             onEditReceipt={r => { setEditTarget(r); setModal("receipt-edit"); }}
             onDeleteReceipt={handleDeleteReceipt}
-            onAcceptRetail={id => setRetail(rs => rs.map(r => r.maPhieu === id ? { ...r, status: "received" } : r))}
-            onShipRetail={id => setRetail(rs => rs.map(r => r.maPhieu === id ? { ...r, status: "shipped" } : r))}
+            onAcceptRetail={handleAcceptRetail}
+            onShipRetail={handleShipRetail}
           />
         )}
         {section === "inventory" && (
