@@ -16,8 +16,10 @@ export interface ImportReceipt {
 export interface Warehouse { maKho: string; tenKho: string; diaChi: string; soDienThoai: string; }
 export interface InventoryBatch { maLo: string; sanPham: string; soLuong: number; ngayNhap: string; status: "in_stock" | "low" | "out"; }
 export interface QualityCheck {
-  maKiemDinh: string; maLo: string; ngayKiem: string; nguoiKiem: string;
-  ketQua: "Đạt" | "Không đạt" | "Yêu cầu bổ sung"; ghiChu?: string;
+  maKiemDinh: string; maLo: string; tenSanPham?: string; ngayKiem: string; nguoiKiem: string;
+  ketQua: "dat" | "khong_dat" | "A" | "B" | "C";
+  trangThai?: "hoan_thanh" | "cho_duyet";
+  bienBan?: string; ghiChu?: string;
 }
 export interface RetailOrder {
   maPhieu: string; maLo: string; sanPham: string; soLuong: number;
@@ -49,6 +51,14 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   low:                 { label: "Sắp hết",        color: "#dc2626", bg: "#fee2e2" },
   out:                 { label: "Hết hàng",       color: "#6b7280", bg: "#f3f4f6" },
   // kiểm định
+  dat:                 { label: "✓ Đạt",          color: "#059669", bg: "#d1fae5" },
+  khong_dat:           { label: "✗ Không đạt",    color: "#dc2626", bg: "#fee2e2" },
+  A:                   { label: "Loại A",          color: "#15803d", bg: "#dcfce7" },
+  B:                   { label: "Loại B",          color: "#1d4ed8", bg: "#dbeafe" },
+  C:                   { label: "Loại C",          color: "#b45309", bg: "#fef3c7" },
+  hoan_thanh_kd:       { label: "Hoàn thành",     color: "#15803d", bg: "#dcfce7" },
+  cho_duyet:           { label: "Chờ duyệt",      color: "#b45309", bg: "#fef3c7" },
+  // legacy keys (giữ lại để không break)
   "Đạt":               { label: "✓ Đạt",          color: "#059669", bg: "#d1fae5" },
   "Không đạt":         { label: "✗ Không đạt",    color: "#dc2626", bg: "#fee2e2" },
   "Yêu cầu bổ sung":  { label: "⚠ Bổ sung",      color: "#b45309", bg: "#fef3c7" },
@@ -112,7 +122,7 @@ const inp: CSSProperties = { width: "100%", padding: "8px 10px", border: "1.5px 
 
 // ─── Sections ─────────────────────────────────────────────────────────────────
 function Dashboard({ receipts, quality, inventory, warehouses, onNewReceipt }: { receipts: ImportReceipt[]; quality: QualityCheck[]; inventory: InventoryBatch[]; warehouses: Warehouse[]; onNewReceipt: () => void }) {
-  const alerts = quality.filter(q => q.ketQua !== "Đạt");
+  const alerts = quality.filter(q => q.ketQua !== "dat");
   const totalStock = inventory.reduce((s, b) => s + b.soLuong, 0);
   const kpis = [
     { icon: "📥", label: "Phiếu nhập",   value: receipts.length,    accent: "#16a34a" },
@@ -293,17 +303,26 @@ function QualitySection({ quality, onNew, onEdit, onDelete }: {
         <SectionTitle>🔬 Phiếu kiểm định chất lượng</SectionTitle>
         <PrimaryBtn onClick={onNew}>+ Thêm kiểm định</PrimaryBtn>
       </div>
-      <StyledTable headers={["Mã kiểm định", "Mã lô", "Ngày kiểm", "Người kiểm", "Kết quả", "Ghi chú", ""]}>
-        {quality.map(q => (
-          <tr key={q.maKiemDinh}>
-            <Td><code style={{ fontSize: 11, color: "#888" }}>{q.maKiemDinh}</code></Td>
-            <Td><b>{q.maLo}</b></Td><Td>{q.ngayKiem}</Td><Td>{q.nguoiKiem}</Td>
-            <Td><StatusBadge status={q.ketQua} /></Td>
-            <Td style={{ color: "#888" }}>{q.ghiChu || "—"}</Td>
-            <Td><ActionBtn onClick={() => onEdit(q)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDelete(q.maKiemDinh)} color="#dc2626">Xóa</ActionBtn></Td>
-          </tr>
-        ))}
-      </StyledTable>
+      {quality.length === 0
+        ? <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0", fontSize: 13 }}>Chưa có phiếu kiểm định nào</p>
+        : <StyledTable headers={["Mã KĐ", "Mã lô", "Sản phẩm", "Người kiểm", "Kết quả", "Trạng thái", "Ghi chú", ""]}>
+            {quality.map(q => (
+              <tr key={q.maKiemDinh}>
+                <Td><code style={{ fontSize: 11, color: "#888" }}>#{q.maKiemDinh}</code></Td>
+                <Td><b>{q.maLo}</b></Td>
+                <Td>{q.tenSanPham || "—"}</Td>
+                <Td>{q.nguoiKiem}</Td>
+                <Td><StatusBadge status={q.ketQua} /></Td>
+                <Td><StatusBadge status={q.trangThai || "cho_duyet"} /></Td>
+                <Td style={{ color: "#888", maxWidth: 160 }}>{q.ghiChu || "—"}</Td>
+                <Td>
+                  <ActionBtn onClick={() => onEdit(q)} color="#2563eb">Sửa</ActionBtn>
+                  <ActionBtn onClick={() => onDelete(q.maKiemDinh)} color="#dc2626">Xóa</ActionBtn>
+                </Td>
+              </tr>
+            ))}
+          </StyledTable>
+      }
     </Panel>
   );
 }
@@ -313,7 +332,7 @@ function ReportsSection({ receipts, retail, inventory, quality }: {
 }) {
   const totalStock = inventory.reduce((s, b) => s + b.soLuong, 0);
   const shipped = retail.filter(r => r.status === "shipped").length;
-  const passed = quality.filter(q => q.ketQua === "Đạt").length;
+  const passed = quality.filter(q => q.ketQua === "dat" || q.ketQua === "A").length;
   const passRate = quality.length ? Math.round((passed / quality.length) * 100) : 0;
   const cards = [
     { icon: "📥", label: "Tổng phiếu nhập", value: receipts.length,    color: "#16a34a" },
@@ -569,34 +588,92 @@ function WarehouseModal({ warehouse, onClose, onSave }: {
   );
 }
 
-function QualityModal({ check, onClose, onSave }: {
-  check: QualityCheck | null; onClose: () => void; onSave: (d: Partial<QualityCheck>) => void;
+function QualityModal({ check, inventory, onClose, onSaved }: {
+  check: QualityCheck | null;
+  inventory: InventoryBatch[];
+  onClose: () => void;
+  onSaved: () => void;
 }) {
-  const [maKD, setMaKD] = useState(check?.maKiemDinh || "");
-  const [maLo, setMaLo] = useState(check?.maLo || "");
-  const [ngay, setNgay] = useState(check?.ngayKiem || "");
-  const [nguoi, setNguoi] = useState(check?.nguoiKiem || "");
-  const [kq, setKq] = useState<QualityCheck["ketQua"]>(check?.ketQua || "Đạt");
+  const authUser = getCurrentUser();
+  const maDaiLy = authUser?.maDoiTuong;
+
+  const [maLo, setMaLo] = useState(check?.maLo || (inventory[0]?.maLo ?? ""));
+  const [nguoi, setNguoi] = useState(check?.nguoiKiem || authUser?.tenHienThi || "");
+  const [ketQua, setKetQua] = useState<QualityCheck["ketQua"]>(check?.ketQua || "dat");
+  const [trangThai, setTrangThai] = useState<"hoan_thanh" | "cho_duyet">(check?.trangThai || "cho_duyet");
+  const [bienBan, setBienBan] = useState(check?.bienBan || "");
   const [ghiChu, setGhiChu] = useState(check?.ghiChu || "");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    if (!maLo || !nguoi) return setErr("Vui lòng điền đủ thông tin");
+    setLoading(true); setErr("");
+    try {
+      if (check) {
+        const res = await fetch(`/api/kiem-dinh/update/${check.maKiemDinh}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ KetQua: ketQua, BienBan: bienBan || null, GhiChu: ghiChu || null, TrangThai: trangThai }),
+        });
+        if (!res.ok) throw new Error((await res.json()).message);
+      } else {
+        const res = await fetch("/api/kiem-dinh/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ MaLo: Number(maLo), NguoiKiemDinh: nguoi, MaDaiLy: maDaiLy, KetQua: ketQua, BienBan: bienBan || null, GhiChu: ghiChu || null }),
+        });
+        if (!res.ok) throw new Error((await res.json()).message);
+      }
+      onSaved(); onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi lưu kiểm định");
+    } finally { setLoading(false); }
+  }
+
   return (
-    <Modal title={check ? "Chỉnh sửa kiểm định" : "Thêm phiếu kiểm định"} onClose={onClose}>
+    <Modal title={check ? `Sửa kiểm định #${check.maKiemDinh}` : "Thêm phiếu kiểm định"} onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
-        <FormField label="Mã kiểm định"><input style={inp} value={maKD} onChange={e => setMaKD(e.target.value)} placeholder="KD001" /></FormField>
-        <FormField label="Mã lô"><input style={inp} value={maLo} onChange={e => setMaLo(e.target.value)} placeholder="B001" /></FormField>
-        <FormField label="Ngày kiểm"><input style={inp} type="date" value={ngay} onChange={e => setNgay(e.target.value)} /></FormField>
-        <FormField label="Người kiểm"><input style={inp} value={nguoi} onChange={e => setNguoi(e.target.value)} placeholder="Tên người kiểm" /></FormField>
+        <FormField label="Lô nông sản *">
+          {check
+            ? <div style={{ padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 13, border: "1.5px solid #e2e8f0" }}>{check.tenSanPham || `Lô #${check.maLo}`}</div>
+            : <select style={inp} value={maLo} onChange={e => setMaLo(e.target.value)}>
+                {inventory.length === 0
+                  ? <option value="">— Không có lô trong kho —</option>
+                  : inventory.map(b => <option key={b.maLo} value={b.maLo}>{b.sanPham} — Lô #{b.maLo} ({b.soLuong} kg)</option>)
+                }
+              </select>
+          }
+        </FormField>
+        <FormField label="Người kiểm *">
+          <input style={inp} value={nguoi} onChange={e => setNguoi(e.target.value)} placeholder="Tên người kiểm định" />
+        </FormField>
+        <FormField label="Kết quả *">
+          <select style={inp} value={ketQua} onChange={e => setKetQua(e.target.value as QualityCheck["ketQua"])}>
+            <option value="dat">✓ Đạt</option>
+            <option value="khong_dat">✗ Không đạt</option>
+            <option value="A">Loại A</option>
+            <option value="B">Loại B</option>
+            <option value="C">Loại C</option>
+          </select>
+        </FormField>
+        <FormField label="Trạng thái">
+          <select style={inp} value={trangThai} onChange={e => setTrangThai(e.target.value as "hoan_thanh" | "cho_duyet")}>
+            <option value="cho_duyet">Chờ duyệt</option>
+            <option value="hoan_thanh">Hoàn thành</option>
+          </select>
+        </FormField>
       </div>
-      <FormField label="Kết quả">
-        <select style={inp} value={kq} onChange={e => setKq(e.target.value as QualityCheck["ketQua"])}>
-          <option value="Đạt">✓ Đạt</option>
-          <option value="Không đạt">✗ Không đạt</option>
-          <option value="Yêu cầu bổ sung">⚠ Yêu cầu bổ sung</option>
-        </select>
+      <FormField label="Biên bản">
+        <input style={inp} value={bienBan} onChange={e => setBienBan(e.target.value)} placeholder="Nội dung biên bản…" />
       </FormField>
-      <FormField label="Ghi chú"><input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuỳ chọn" /></FormField>
+      <FormField label="Ghi chú">
+        <input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuỳ chọn…" />
+      </FormField>
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
         <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-        <PrimaryBtn onClick={() => onSave({ maKiemDinh: maKD, maLo, ngayKiem: ngay, nguoiKiem: nguoi, ketQua: kq, ghiChu })}>Lưu</PrimaryBtn>
+        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu"}</PrimaryBtn>
       </div>
     </Modal>
   );
@@ -766,6 +843,26 @@ export default function DailyApp() {
         })));
       })
       .catch(console.error);
+
+    // Load kiểm định chất lượng
+    fetch(`/api/kiem-dinh/dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        console.log('[KiemDinh] raw data:', data);
+        if (!Array.isArray(data)) { console.error('[KiemDinh] không phải array:', data); return; }
+        setQuality(data.map(d => ({
+          maKiemDinh: String(d.MaKiemDinh),
+          maLo: String(d.MaLo),
+          tenSanPham: d.TenSanPham || "",
+          ngayKiem: d.NgayKiemDinh ? new Date(d.NgayKiemDinh).toLocaleDateString("vi-VN") : "",
+          nguoiKiem: d.NguoiKiemDinh || "",
+          ketQua: (d.KetQua as QualityCheck["ketQua"]) || "dat",
+          trangThai: (d.TrangThai as QualityCheck["trangThai"]) || "hoan_thanh",
+          bienBan: d.BienBan || "",
+          ghiChu: d.GhiChu || "",
+        })));
+      })
+      .catch(e => console.error('[KiemDinh] fetch error:', e));
   }, [maDaiLy]);
 
   const [userInfo, setUserInfo] = useState<Partial<AgencyUser>>({
@@ -863,16 +960,39 @@ export default function DailyApp() {
   function handleDeleteWarehouse(id: string) {
     if (window.confirm("Xóa kho này?")) setWarehouses(ws => ws.filter(w => w.maKho !== id));
   }
-  function handleSaveQuality(d: Partial<QualityCheck>) {
-    if (modal === "quality-edit" && editTarget) {
-      setQuality(qs => qs.map(q => q.maKiemDinh === (editTarget as QualityCheck).maKiemDinh ? { ...q, ...d } : q));
-    } else {
-      setQuality(qs => [...qs, { maKiemDinh: "KD" + Date.now(), ...d } as QualityCheck]);
-    }
-    setModal(null); setEditTarget(null);
+  function handleSaveQuality(_d: Partial<QualityCheck>) { /* replaced by QualityModal onSaved */ }
+
+  function reloadQuality() {
+    if (!maDaiLy) return;
+    fetch(`/api/kiem-dinh/dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        console.log('[KiemDinh reload] raw data:', data);
+        if (!Array.isArray(data)) return;
+        setQuality(data.map(d => ({
+          maKiemDinh: String(d.MaKiemDinh),
+          maLo: String(d.MaLo),
+          tenSanPham: d.TenSanPham || "",
+          ngayKiem: d.NgayKiemDinh ? new Date(d.NgayKiemDinh).toLocaleDateString("vi-VN") : "",
+          nguoiKiem: d.NguoiKiemDinh || "",
+          ketQua: (d.KetQua as QualityCheck["ketQua"]) || "dat",
+          trangThai: (d.TrangThai as QualityCheck["trangThai"]) || "hoan_thanh",
+          bienBan: d.BienBan || "",
+          ghiChu: d.GhiChu || "",
+        })));
+      })
+      .catch(console.error);
   }
-  function handleDeleteQuality(id: string) {
-    if (window.confirm("Xóa phiếu kiểm định?")) setQuality(qs => qs.filter(q => q.maKiemDinh !== id));
+
+  async function handleDeleteQuality(id: string) {
+    if (!window.confirm("Xóa phiếu kiểm định này?")) return;
+    try {
+      const res = await fetch(`/api/kiem-dinh/delete/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).message);
+      reloadQuality();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Lỗi xóa kiểm định");
+    }
   }
 
   const headerCtas: Partial<Record<Section, ReactNode>> = {
@@ -950,7 +1070,7 @@ export default function DailyApp() {
 
       {(modal === "receipt" || modal === "receipt-edit") && <ReceiptModal receipt={modal === "receipt-edit" ? editTarget as ImportReceipt : null} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={() => { reloadReceipts(); }} />}
       {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveWarehouse} />}
-      {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveQuality} />}
+      {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} inventory={inventory} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadQuality} />}
       {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} onEdit={() => setModal("edit-profile")} />}
       {modal === "edit-profile" && <EditProfileModal user={user} onClose={() => setModal(null)} onSaved={(u) => setUserInfo(prev => ({ ...prev, ...u }))} />}
     </div>
