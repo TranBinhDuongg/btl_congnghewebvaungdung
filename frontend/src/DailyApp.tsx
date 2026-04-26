@@ -567,22 +567,63 @@ function ReceiptModal({ receipt, onClose, onSaved }: {
   );
 }
 
-function WarehouseModal({ warehouse, onClose, onSave }: {
-  warehouse: Warehouse | null; onClose: () => void; onSave: (d: Partial<Warehouse>) => void;
+function WarehouseModal({ warehouse, onClose, onSaved }: {
+  warehouse: Warehouse | null; onClose: () => void; onSaved: () => void;
 }) {
-  const [maKho, setMaKho] = useState(warehouse?.maKho || "");
+  const authUser = getCurrentUser();
+  const maDaiLy = authUser?.maDoiTuong;
+
   const [tenKho, setTenKho] = useState(warehouse?.tenKho || "");
   const [diaChi, setDiaChi] = useState(warehouse?.diaChi || "");
-  const [sdt, setSdt] = useState(warehouse?.soDienThoai || "");
+  const [trangThai, setTrangThai] = useState<"hoat_dong" | "ngung_hoat_dong">("hoat_dong");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    if (!tenKho) return setErr("Vui lòng nhập tên kho");
+    setLoading(true); setErr("");
+    try {
+      if (warehouse) {
+        const res = await fetch(`/api/kho/update/${warehouse.maKho}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ TenKho: tenKho, DiaChi: diaChi, TrangThai: trangThai }),
+        });
+        if (!res.ok) throw new Error((await res.json()).message);
+      } else {
+        const res = await fetch("/api/kho/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ LoaiKho: "daily", MaDaiLy: maDaiLy, TenKho: tenKho, DiaChi: diaChi }),
+        });
+        if (!res.ok) throw new Error((await res.json()).message);
+      }
+      onSaved(); onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi lưu kho");
+    } finally { setLoading(false); }
+  }
+
   return (
     <Modal title={warehouse ? "Chỉnh sửa kho" : "Thêm kho mới"} onClose={onClose}>
-      <FormField label="Mã kho"><input style={inp} value={maKho} onChange={e => setMaKho(e.target.value)} placeholder="KHO01" /></FormField>
-      <FormField label="Tên kho *"><input style={inp} value={tenKho} onChange={e => setTenKho(e.target.value)} placeholder="Kho Long Biên" /></FormField>
-      <FormField label="Địa chỉ"><input style={inp} value={diaChi} onChange={e => setDiaChi(e.target.value)} placeholder="Số nhà, đường, quận…" /></FormField>
-      <FormField label="Số điện thoại"><input style={inp} value={sdt} onChange={e => setSdt(e.target.value)} placeholder="024…" /></FormField>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
+      <FormField label="Tên kho *">
+        <input style={inp} value={tenKho} onChange={e => setTenKho(e.target.value)} placeholder="Kho Long Biên" />
+      </FormField>
+      <FormField label="Địa chỉ">
+        <input style={inp} value={diaChi} onChange={e => setDiaChi(e.target.value)} placeholder="Số nhà, đường, quận…" />
+      </FormField>
+      {warehouse && (
+        <FormField label="Trạng thái">
+          <select style={inp} value={trangThai} onChange={e => setTrangThai(e.target.value as "hoat_dong" | "ngung_hoat_dong")}>
+            <option value="hoat_dong">Hoạt động</option>
+            <option value="ngung_hoat_dong">Ngừng hoạt động</option>
+          </select>
+        </FormField>
+      )}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
         <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-        <PrimaryBtn onClick={() => { if (!tenKho) return alert("Cần tên kho"); onSave({ maKho, tenKho, diaChi, soDienThoai: sdt }); }}>Lưu kho</PrimaryBtn>
+        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu kho"}</PrimaryBtn>
       </div>
     </Modal>
   );
@@ -949,16 +990,31 @@ export default function DailyApp() {
       alert(e instanceof Error ? e.message : "Lỗi xóa đơn");
     }
   }
-  function handleSaveWarehouse(d: Partial<Warehouse>) {
-    if (modal === "warehouse-edit" && editTarget) {
-      setWarehouses(ws => ws.map(w => w.maKho === (editTarget as Warehouse).maKho ? { ...w, ...d } : w));
-    } else {
-      setWarehouses(ws => [...ws, { maKho: "KHO" + Date.now(), ...d } as Warehouse]);
-    }
-    setModal(null); setEditTarget(null);
+  function reloadWarehouses() {
+    if (!maDaiLy) return;
+    fetch(`/api/kho/dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        const seen = new Set<string>();
+        const khos = data.reduce((acc: Warehouse[], w: any) => {
+          const key = String(w.MaKho);
+          if (!seen.has(key)) { seen.add(key); acc.push({ maKho: key, tenKho: w.TenKho, diaChi: w.DiaChi || "", soDienThoai: "" }); }
+          return acc;
+        }, []);
+        setWarehouses(khos);
+      })
+      .catch(console.error);
   }
-  function handleDeleteWarehouse(id: string) {
-    if (window.confirm("Xóa kho này?")) setWarehouses(ws => ws.filter(w => w.maKho !== id));
+
+  async function handleDeleteWarehouse(id: string) {
+    if (!window.confirm("Xóa kho này?")) return;
+    try {
+      const res = await fetch(`/api/kho/delete/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).message);
+      reloadWarehouses();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Lỗi xóa kho");
+    }
   }
   function handleSaveQuality(_d: Partial<QualityCheck>) { /* replaced by QualityModal onSaved */ }
 
@@ -1069,7 +1125,7 @@ export default function DailyApp() {
       </main>
 
       {(modal === "receipt" || modal === "receipt-edit") && <ReceiptModal receipt={modal === "receipt-edit" ? editTarget as ImportReceipt : null} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={() => { reloadReceipts(); }} />}
-      {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveWarehouse} />}
+      {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadWarehouses} />}
       {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} inventory={inventory} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadQuality} />}
       {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} onEdit={() => setModal("edit-profile")} />}
       {modal === "edit-profile" && <EditProfileModal user={user} onClose={() => setModal(null)} onSaved={(u) => setUserInfo(prev => ({ ...prev, ...u }))} />}
