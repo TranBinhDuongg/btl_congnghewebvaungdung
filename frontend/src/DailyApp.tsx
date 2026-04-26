@@ -31,14 +31,23 @@ const EMPTY_USER: AgencyUser = {
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  // frontend keys
   created:             { label: "Đã tạo",        color: "#64748b", bg: "#f1f5f9" },
   pending:             { label: "Chờ xử lý",     color: "#b45309", bg: "#fef3c7" },
   preparing:           { label: "Chuẩn bị",      color: "#1d4ed8", bg: "#dbeafe" },
   shipped:             { label: "Đã xuất",        color: "#7c3aed", bg: "#ede9fe" },
   received:            { label: "Đã nhận",        color: "#059669", bg: "#d1fae5" },
+  // DB keys
+  chua_nhan:           { label: "Chưa nhận",     color: "#b45309", bg: "#fef3c7" },
+  da_nhan:             { label: "Đã nhận",        color: "#059669", bg: "#d1fae5" },
+  dang_xu_ly:          { label: "Đang xử lý",    color: "#1d4ed8", bg: "#dbeafe" },
+  hoan_thanh:          { label: "Hoàn thành",    color: "#15803d", bg: "#dcfce7" },
+  da_huy:              { label: "Đã hủy",         color: "#6b7280", bg: "#f3f4f6" },
+  // tồn kho
   in_stock:            { label: "Còn hàng",       color: "#15803d", bg: "#dcfce7" },
   low:                 { label: "Sắp hết",        color: "#dc2626", bg: "#fee2e2" },
   out:                 { label: "Hết hàng",       color: "#6b7280", bg: "#f3f4f6" },
+  // kiểm định
   "Đạt":               { label: "✓ Đạt",          color: "#059669", bg: "#d1fae5" },
   "Không đạt":         { label: "✗ Không đạt",    color: "#dc2626", bg: "#fee2e2" },
   "Yêu cầu bổ sung":  { label: "⚠ Bổ sung",      color: "#b45309", bg: "#fef3c7" },
@@ -82,7 +91,7 @@ function PrimaryBtn({ children, onClick }: { children: ReactNode; onClick?: () =
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 500, maxWidth: "94vw", maxHeight: "88vh", overflowY: "auto", position: "relative", boxShadow: "0 8px 40px #0003" }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 620, maxWidth: "94vw", maxHeight: "88vh", overflowY: "auto", position: "relative", boxShadow: "0 8px 40px #0003" }} onClick={e => e.stopPropagation()}>
         <button onClick={onClose} style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa" }}>✕</button>
         <h3 style={{ marginBottom: 18, color: "#431407", fontWeight: 800, fontSize: 17 }}>{title}</h3>
         {children}
@@ -126,16 +135,21 @@ function Dashboard({ receipts, quality, inventory, warehouses, onNewReceipt }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(460px,1fr))", gap: 16 }}>
         <Panel>
           <SectionTitle>📋 Đơn hàng gần đây</SectionTitle>
-          <StyledTable headers={["Mã phiếu", "Lô — Sản phẩm", "SL", "Kho", "Ngày", "TT"]}>
-            {receipts.slice(0, 5).map(r => (
-              <tr key={r.maPhieu}>
-                <Td><code style={{ fontSize: 11, color: "#888" }}>{r.maPhieu}</code></Td>
-                <Td><span style={{ color: "#aaa", fontSize: 11 }}>{r.maLo} —</span> <b>{r.sanPham}</b></Td>
-                <Td>{r.soLuong} kg</Td><Td>{r.khoNhapName || r.khoNhap}</Td><Td>{r.ngayNhap}</Td>
-                <Td><StatusBadge status={r.status} /></Td>
-              </tr>
-            ))}
-          </StyledTable>
+          {receipts.length === 0
+            ? <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0", fontSize: 13 }}>Chưa có đơn hàng nào</p>
+            : <StyledTable headers={["Mã đơn", "Nông dân", "Tổng SL", "Ghi chú", "Ngày đặt", "TT"]}>
+                {receipts.slice(0, 5).map(r => (
+                  <tr key={r.maPhieu}>
+                    <Td><code style={{ fontSize: 11, color: "#888" }}>#{r.maPhieu}</code></Td>
+                    <Td>{r.tenNong || "—"}</Td>
+                    <Td>{r.soLuong > 0 ? `${r.soLuong.toLocaleString()} kg` : "—"}</Td>
+                    <Td style={{ color: "#888", maxWidth: 160 }}>{r.sanPham || "—"}</Td>
+                    <Td>{r.ngayNhap || "—"}</Td>
+                    <Td><StatusBadge status={r.status} /></Td>
+                  </tr>
+                ))}
+              </StyledTable>
+          }
         </Panel>
         <Panel>
           <SectionTitle>🔬 Cảnh báo chất lượng</SectionTitle>
@@ -320,41 +334,214 @@ function ReportsSection({ receipts, retail, inventory, quality }: {
 }
 
 // ─── Form Modals ──────────────────────────────────────────────────────────────
-function ReceiptModal({ receipt, warehouses, onClose, onSave }: {
-  receipt: ImportReceipt | null; warehouses: Warehouse[];
-  onClose: () => void; onSave: (d: Partial<ImportReceipt>) => void;
+interface ChiTietRow { maLo: string; tenLo: string; soLuong: string; donGia: string; isExisting?: boolean; }
+
+function ReceiptModal({ receipt, onClose, onSaved }: {
+  receipt: ImportReceipt | null;
+  onClose: () => void;
+  onSaved: () => void;
 }) {
-  const [maPhieu, setMaPhieu] = useState(receipt?.maPhieu || "");
-  const [maLo, setMaLo] = useState(receipt?.maLo || "");
-  const [sanPham, setSanPham] = useState(receipt?.sanPham || "");
-  const [soLuong, setSoLuong] = useState(String(receipt?.soLuong || ""));
-  const [tenNong, setTenNong] = useState(receipt?.tenNong || "");
-  const [khoNhap, setKhoNhap] = useState(receipt?.khoNhap || warehouses[0]?.maKho || "");
-  const [ngayNhap, setNgayNhap] = useState(receipt?.ngayNhap || "");
-  const [ghiChu, setGhiChu] = useState(receipt?.ghiChu || "");
+  const authUser = getCurrentUser();
+  const maDaiLy = authUser?.maDoiTuong;
+
+  const [nongDans, setNongDans] = useState<{ MaNongDan: number; HoTen: string }[]>([]);
+  const [maNongDan, setMaNongDan] = useState("");
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [rows, setRows] = useState<ChiTietRow[]>([{ maLo: "", tenLo: "", soLuong: "", donGia: "" }]);
+  const [ghiChu, setGhiChu] = useState(receipt?.ghiChu || receipt?.sanPham || "");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Tạo mới: load nông dân
+  useEffect(() => {
+    if (receipt) return;
+    fetch("/api/nong-dan/get-all")
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setNongDans(data);
+        if (data.length) setMaNongDan(String(data[0].MaNongDan));
+      })
+      .catch(() => setErr("Không tải được danh sách nông dân"));
+  }, [receipt]);
+
+  // Tạo mới: khi chọn nông dân → load lô của họ
+  useEffect(() => {
+    if (receipt || !maNongDan) return;
+    fetch(`/api/lo-nong-san/get-by-nong-dan/${maNongDan}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setLots(data);
+        setRows([{ maLo: data[0] ? String(data[0].MaLo) : "", tenLo: data[0]?.TenSanPham || "", soLuong: "", donGia: "" }]);
+      })
+      .catch(console.error);
+  }, [maNongDan, receipt]);
+
+  // Sửa: load chi tiết đơn hiện tại + lô của nông dân đó
+  useEffect(() => {
+    if (!receipt) return;
+    // Load chi tiết đơn
+    fetch(`/api/don-hang-dai-ly/${receipt.maPhieu}/chi-tiet`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setRows(data.map(d => ({
+          maLo: String(d.MaLo),
+          tenLo: d.TenSanPham || "",
+          soLuong: String(d.SoLuong),
+          donGia: String(d.DonGia),
+          isExisting: true,
+        })));
+        // Load lô để dùng cho dropdown thêm mới
+        if (data.length > 0) {
+          // Lấy tất cả lô (dùng get-all vì không biết maNongDan ở đây)
+          fetch("/api/lo-nong-san/get-all")
+            .then(r2 => r2.json())
+            .then((allLots: any[]) => setLots(allLots))
+            .catch(console.error);
+        }
+      })
+      .catch(() => setErr("Không tải được chi tiết đơn"));
+  }, [receipt]);
+
+  function setRow(i: number, field: keyof ChiTietRow, val: string) {
+    setRows(rs => rs.map((r, idx) => {
+      if (idx !== i) return r;
+      if (field === "maLo") {
+        const lot = lots.find(l => String(l.MaLo) === val);
+        return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" };
+      }
+      return { ...r, [field]: val };
+    }));
+  }
+
+  async function handleSave() {
+    setLoading(true); setErr("");
+    try {
+      if (receipt) {
+        // Cập nhật ghi chú
+        const resGhiChu = await fetch(`/api/don-hang-dai-ly/update/${receipt.maPhieu}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ GhiChu: ghiChu }),
+        });
+        if (!resGhiChu.ok) throw new Error((await resGhiChu.json()).message);
+
+        // Cập nhật từng dòng chi tiết đã có
+        for (const row of rows.filter(r => r.isExisting && r.maLo && r.soLuong && r.donGia)) {
+          const r2 = await fetch(`/api/don-hang-dai-ly/${receipt.maPhieu}/chi-tiet/${row.maLo}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
+          });
+          if (!r2.ok) throw new Error((await r2.json()).message);
+        }
+
+        // Thêm các dòng mới
+        for (const row of rows.filter(r => !r.isExisting && r.maLo && r.soLuong && r.donGia)) {
+          const r2 = await fetch(`/api/don-hang-dai-ly/${receipt.maPhieu}/chi-tiet`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
+          });
+          if (!r2.ok) throw new Error((await r2.json()).message);
+        }
+      } else {
+        const validRows = rows.filter(r => r.maLo && r.soLuong && r.donGia);
+        if (!maNongDan) return setErr("Vui lòng chọn nông dân");
+        if (!validRows.length) return setErr("Thêm ít nhất 1 lô hàng");
+
+        const res = await fetch("/api/don-hang-dai-ly/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ MaDaiLy: maDaiLy, MaNongDan: Number(maNongDan), GhiChu: ghiChu || null }),
+        });
+        if (!res.ok) throw new Error((await res.json()).message);
+        const { MaDonHang } = await res.json();
+
+        for (const row of validRows) {
+          const r2 = await fetch(`/api/don-hang-dai-ly/${MaDonHang}/chi-tiet`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
+          });
+          if (!r2.ok) throw new Error((await r2.json()).message);
+        }
+      }
+      onSaved(); onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi lưu đơn hàng");
+    } finally { setLoading(false); }
+  }
+
+  async function handleDeleteRow(row: ChiTietRow, i: number) {
+    if (!receipt || !row.isExisting) { setRows(rs => rs.filter((_, idx) => idx !== i)); return; }
+    if (!window.confirm("Xóa lô này khỏi đơn?")) return;
+    try {
+      const res = await fetch(`/api/don-hang-dai-ly/${receipt.maPhieu}/chi-tiet/${row.maLo}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).message);
+      setRows(rs => rs.filter((_, idx) => idx !== i));
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Lỗi xóa lô"); }
+  }
+
+  const allLots = lots;
+
   return (
-    <Modal title={receipt ? "Chỉnh sửa phiếu nhập" : "Tạo phiếu nhập hàng"} onClose={onClose}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
-        <FormField label="Mã phiếu *"><input style={inp} value={maPhieu} onChange={e => setMaPhieu(e.target.value)} placeholder="PN001" /></FormField>
-        <FormField label="Mã lô *"><input style={inp} value={maLo} onChange={e => setMaLo(e.target.value)} placeholder="B001" /></FormField>
-        <FormField label="Sản phẩm *"><input style={inp} value={sanPham} onChange={e => setSanPham(e.target.value)} placeholder="Cải thảo…" /></FormField>
-        <FormField label="Số lượng (kg) *"><input style={inp} type="number" value={soLuong} onChange={e => setSoLuong(e.target.value)} placeholder="50" /></FormField>
+    <Modal title={receipt ? `Sửa đơn #${receipt.maPhieu}` : "Tạo đơn nhập hàng"} onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
+
+      {receipt ? (
+        <div style={{ marginBottom: 14, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#555" }}>
+          Nông dân: <b>{receipt.tenNong || "—"}</b>
+        </div>
+      ) : (
+        <FormField label="Nông dân *">
+          <select style={inp} value={maNongDan} onChange={e => setMaNongDan(e.target.value)}>
+            {nongDans.map(n => <option key={n.MaNongDan} value={n.MaNongDan}>{n.HoTen}</option>)}
+          </select>
+        </FormField>
+      )}
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>Chi tiết đơn hàng *</label>
+          <button onClick={() => setRows(rs => [...rs, { maLo: allLots[0] ? String(allLots[0].MaLo) : "", tenLo: allLots[0]?.TenSanPham || "", soLuong: "", donGia: "", isExisting: false }])}
+            style={{ fontSize: 11, fontWeight: 700, color: "#d97706", background: "none", border: "1px solid #d97706", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
+            + Thêm lô
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6 }}>
+          {["Lô nông sản", "Số lượng (kg)", "Đơn giá (đ)", ""].map(h => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>{h}</div>
+          ))}
+        </div>
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+            {row.isExisting ? (
+              <div style={{ padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#333", border: "1.5px solid #e2e8f0" }}>
+                {row.tenLo || `Lô #${row.maLo}`}
+              </div>
+            ) : (
+              <select style={inp} value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
+                {allLots.length === 0
+                  ? <option value="">— Không có lô —</option>
+                  : allLots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuongHienTai} kg)</option>)
+                }
+              </select>
+            )}
+            <input style={inp} type="number" placeholder="Số lượng" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} />
+            <input style={inp} type="number" placeholder="Đơn giá" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} />
+            <button onClick={() => handleDeleteRow(row, i)}
+              style={{ background: "none", border: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>✕</button>
+          </div>
+        ))}
+        {rows.length === 0 && <p style={{ color: "#aaa", fontSize: 13, textAlign: "center", padding: "12px 0" }}>Chưa có lô nào</p>}
       </div>
-      <FormField label="Nông dân"><input style={inp} value={tenNong} onChange={e => setTenNong(e.target.value)} placeholder="Tên nông dân" /></FormField>
-      <FormField label="Kho nhập *">
-        <select style={inp} value={khoNhap} onChange={e => setKhoNhap(e.target.value)}>
-          {warehouses.map(w => <option key={w.maKho} value={w.maKho}>{w.tenKho}</option>)}
-        </select>
+
+      <FormField label="Ghi chú">
+        <input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú tuỳ chọn…" />
       </FormField>
-      <FormField label="Ngày nhập *"><input style={inp} type="date" value={ngayNhap} onChange={e => setNgayNhap(e.target.value)} /></FormField>
-      <FormField label="Ghi chú"><input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuỳ chọn" /></FormField>
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
         <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-        <PrimaryBtn onClick={() => {
-          if (!maPhieu || !maLo || !sanPham || !soLuong || !khoNhap || !ngayNhap) return alert("Vui lòng điền đủ thông tin");
-          const khoObj = warehouses.find(w => w.maKho === khoNhap);
-          onSave({ maPhieu, maLo, sanPham, soLuong: Number(soLuong), tenNong, khoNhap, khoNhapName: khoObj?.tenKho, ngayNhap, ghiChu });
-        }}>Lưu phiếu</PrimaryBtn>
+        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu đơn"}</PrimaryBtn>
       </div>
     </Modal>
   );
@@ -589,16 +776,34 @@ export default function DailyApp() {
   });
   const user: AgencyUser = { ...EMPTY_USER, ...userInfo };
 
-  function handleSaveReceipt(d: Partial<ImportReceipt>) {
-    if (modal === "receipt-edit" && editTarget) {
-      setReceipts(rs => rs.map(r => r.maPhieu === (editTarget as ImportReceipt).maPhieu ? { ...r, ...d } : r));
-    } else {
-      setReceipts(rs => [...rs, { status: "created", ...d } as ImportReceipt]);
-    }
-    setModal(null); setEditTarget(null);
+  function reloadReceipts() {
+    if (!maDaiLy) return;
+    fetch(`/api/don-hang-dai-ly/get-by-dai-ly/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setReceipts(data.map(d => ({
+          maPhieu: String(d.MaDonHang),
+          maLo: "",
+          sanPham: d.GhiChu || "",
+          soLuong: Number(d.TongSoLuong) || 0,
+          tenNong: d.TenNongDan || "",
+          khoNhap: "", khoNhapName: "",
+          ngayNhap: d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "",
+          status: (d.TrangThai as ImportReceipt["status"]) || "created",
+        })));
+      })
+      .catch(console.error);
   }
-  function handleDeleteReceipt(id: string) {
-    if (window.confirm("Xóa phiếu nhập này?")) setReceipts(rs => rs.filter(r => r.maPhieu !== id));
+
+  async function handleDeleteReceipt(id: string) {
+    if (!window.confirm("Xóa đơn nhập này?")) return;
+    try {
+      const res = await fetch(`/api/don-hang-dai-ly/delete/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).message);
+      reloadReceipts();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Lỗi xóa đơn");
+    }
   }
   function handleSaveWarehouse(d: Partial<Warehouse>) {
     if (modal === "warehouse-edit" && editTarget) {
@@ -696,7 +901,7 @@ export default function DailyApp() {
         {section === "reports" && <ReportsSection receipts={receipts} retail={retail} inventory={inventory} quality={quality} />}
       </main>
 
-      {(modal === "receipt" || modal === "receipt-edit") && <ReceiptModal receipt={modal === "receipt-edit" ? editTarget as ImportReceipt : null} warehouses={warehouses} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveReceipt} />}
+      {(modal === "receipt" || modal === "receipt-edit") && <ReceiptModal receipt={modal === "receipt-edit" ? editTarget as ImportReceipt : null} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={() => { reloadReceipts(); }} />}
       {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveWarehouse} />}
       {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveQuality} />}
       {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} onEdit={() => setModal("edit-profile")} />}
