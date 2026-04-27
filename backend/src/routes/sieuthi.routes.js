@@ -269,24 +269,6 @@ router.put('/donhang/huy-don-hang/:id', dhCtrl.huyDonHang);
 
 /**
  * @swagger
- * /api/sieuthi/donhang/{id}:
- *   get:
- *     summary: Lấy chi tiết đơn hàng
- *     tags: [DonHangSieuThi]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Chi tiết đơn hàng
- */
-router.get('/donhang/:id', dhCtrl.getById);
-
-/**
- * @swagger
  * /api/sieuthi/donhang/sieu-thi/{maSieuThi}:
  *   get:
  *     summary: Danh sách đơn hàng theo siêu thị
@@ -304,5 +286,23 @@ router.get('/donhang/:id', dhCtrl.getById);
 router.get('/donhang/sieu-thi/:maSieuThi', dhCtrl.getDonHangBySieuThi);
 
 router.put('/donhang/:id/trang-thai', dhCtrl.updateTrangThai);
+
+/**
+ * @swagger
+ * /api/sieuthi/donhang/{id}:
+ *   get:
+ *     summary: Lấy chi tiết đơn hàng
+ *     tags: [DonHangSieuThi]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Chi tiết đơn hàng
+ */
+router.get('/donhang/:id', dhCtrl.getById);
 
 module.exports = router;

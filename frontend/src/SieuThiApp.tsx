@@ -112,7 +112,7 @@ function FormField({ label, children }: { label: string; children: ReactNode }) 
     </div>
   );
 }
-const inp: CSSProperties = { width: "100%", padding: "8px 10px", border: "1.5px solid #dbeafe", borderRadius: 8, fontSize: 13, outline: "none", fontFamily: "inherit", background: C.mist };
+const inp: CSSProperties = { width: "100%", padding: "8px 10px", border: "1.5px solid #dbeafe", borderRadius: 8, fontSize: 13, outline: "none", fontFamily: "inherit", background: C.mist, boxSizing: "border-box" };
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 type Section = "dashboard" | "orders" | "receive" | "inventory" | "reports";
@@ -127,6 +127,132 @@ const PAGE_TITLES: Record<Section, string> = {
   dashboard: "Bảng điều khiển", orders: "Quản lý đơn hàng",
   receive: "Nhận hàng từ Đại lý", inventory: "Quản lý kho hàng", reports: "Báo cáo thống kê",
 };
+
+// ─── Order Modal ──────────────────────────────────────────────────────────────
+interface ChiTietRow { maLo: string; tenLo: string; soLuong: string; donGia: string; }
+
+function OrderModal({ onClose, onSaved, maSieuThi }: {
+  onClose: () => void; onSaved: () => void; maSieuThi: number;
+}) {
+  const [daiLys, setDaiLys] = useState<{ MaDaiLy: number; TenDaiLy: string; DiaChi?: string }[]>([]);
+  const [maDaiLy, setMaDaiLy] = useState("");
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [rows, setRows] = useState<ChiTietRow[]>([{ maLo: "", tenLo: "", soLuong: "", donGia: "" }]);
+  const [ghiChu, setGhiChu] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    apiFetch("/api/dai-ly/get-all")
+      .then((data: { MaDaiLy: number; TenDaiLy: string; DiaChi?: string }[]) => {
+        setDaiLys(data);
+        if (data.length) setMaDaiLy(String(data[0].MaDaiLy));
+      })
+      .catch(() => setErr("Không tải được danh sách đại lý"));
+  }, []);
+
+  useEffect(() => {
+    if (!maDaiLy) return;
+    apiFetch("/api/lo-nong-san/get-all")
+      .then((data: { MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]) => {
+        setLots(data);
+        setRows([{ maLo: data[0] ? String(data[0].MaLo) : "", tenLo: data[0]?.TenSanPham || "", soLuong: "", donGia: "" }]);
+      })
+      .catch(console.error);
+  }, [maDaiLy]);
+
+  function setRow(i: number, field: keyof ChiTietRow, val: string) {
+    setRows(rs => rs.map((r, idx) => {
+      if (idx !== i) return r;
+      if (field === "maLo") {
+        const lot = lots.find(l => String(l.MaLo) === val);
+        return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" };
+      }
+      return { ...r, [field]: val };
+    }));
+  }
+
+  async function handleSave() {
+    const validRows = rows.filter(r => r.maLo && r.soLuong && r.donGia);
+    if (!maDaiLy) return setErr("Vui lòng chọn đại lý");
+    if (!validRows.length) return setErr("Thêm ít nhất 1 lô hàng");
+    setLoading(true); setErr("");
+    try {
+      const res = await apiFetch("/api/sieuthi/donhang/tao-don-hang", {
+        method: "POST",
+        body: JSON.stringify({ MaSieuThi: maSieuThi, MaDaiLy: Number(maDaiLy), GhiChu: ghiChu || null }),
+      });
+      const maDonHang: number = res.MaDonHang;
+      for (const row of validRows) {
+        await apiFetch("/api/sieuthi/donhang/them-chi-tiet", {
+          method: "POST",
+          body: JSON.stringify({ MaDonHang: maDonHang, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
+        });
+      }
+      onSaved(); onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi tạo đơn hàng");
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <Modal title="🛒 Tạo đơn đặt hàng" onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
+
+      <FormField label="Đại lý *">
+        <select style={inp} value={maDaiLy} onChange={e => { setMaDaiLy(e.target.value); setErr(""); }}>
+          {daiLys.length === 0
+            ? <option value="">— Đang tải... —</option>
+            : daiLys.map(d => <option key={d.MaDaiLy} value={d.MaDaiLy}>{d.TenDaiLy}{d.DiaChi ? ` — ${d.DiaChi}` : ""}</option>)
+          }
+        </select>
+      </FormField>
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>Chi tiết đơn hàng *</label>
+          <button
+            onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: "" }])}
+            style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: "none", border: `1px solid ${C.primary}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
+            + Thêm lô
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6 }}>
+          {["Lô nông sản", "Số lượng (kg)", "Đơn giá (đ)", ""].map(h => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>{h}</div>
+          ))}
+        </div>
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+            <select style={inp} value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
+              {lots.length === 0
+                ? <option value="">— Không có lô —</option>
+                : lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuongHienTai} kg)</option>)
+              }
+            </select>
+            <input style={inp} type="number" min="0" step="any" placeholder="Số lượng" value={row.soLuong}
+              onChange={e => { if (Number(e.target.value) >= 0 || e.target.value === "") setRow(i, "soLuong", e.target.value); }}
+              onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <input style={inp} type="number" min="0" step="any" placeholder="Đơn giá" value={row.donGia}
+              onChange={e => { if (Number(e.target.value) >= 0 || e.target.value === "") setRow(i, "donGia", e.target.value); }}
+              onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <button onClick={() => setRows(rs => rs.filter((_, idx) => idx !== i))}
+              style={{ background: "none", border: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>✕</button>
+          </div>
+        ))}
+        {rows.length === 0 && <p style={{ color: "#aaa", fontSize: 13, textAlign: "center", padding: "12px 0" }}>Chưa có lô nào</p>}
+      </div>
+
+      <FormField label="Ghi chú">
+        <input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú tuỳ chọn…" />
+      </FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu đơn"}</PrimaryBtn>
+      </div>
+    </Modal>
+  );
+}
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function SieuThiApp() {
@@ -150,7 +276,6 @@ export default function SieuThiApp() {
   const [editTarget, setEditTarget] = useState<Order | LoHang | null>(null);
 
   // Forms
-  const [orderForm, setOrderForm] = useState({ maDaiLy: "", ghiChu: "" });
   const [chiTietForm, setChiTietForm] = useState({ maDonHang: "", maLo: "", soLuong: "", donGia: "" });
   const [editTrangThaiForm, setEditTrangThaiForm] = useState({ maDonHang: 0, trangThai: "" });
   const [qualityForm, setQualityForm] = useState({ maKiemDinh: "", maLo: "", ngayKiem: "", nguoiKiem: "", ketQua: "Đạt", ghiChu: "" });
@@ -180,19 +305,6 @@ export default function SieuThiApp() {
       setApiOrdersErr(e instanceof Error ? e.message : "Lỗi tải đơn hàng");
     } finally { setApiOrdersLoading(false); }
   }, [authUser?.maDoiTuong]);
-
-  const taoDonHang = async () => {
-    if (!orderForm.maDaiLy) return alert("Vui lòng nhập mã đại lý");
-    try {
-      await apiFetch("/api/sieuthi/donhang/tao-don-hang", {
-        method: "POST",
-        body: JSON.stringify({ MaSieuThi: authUser?.maDoiTuong, MaDaiLy: +orderForm.maDaiLy, GhiChu: orderForm.ghiChu || null }),
-      });
-      setOrderForm({ maDaiLy: "", ghiChu: "" });
-      setModal(null);
-      loadApiOrders();
-    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi tạo đơn"); }
-  };
 
   const themChiTiet = async () => {
     const { maDonHang, maLo, soLuong, donGia } = chiTietForm;
@@ -472,19 +584,12 @@ export default function SieuThiApp() {
       </main>
 
       {/* Modals */}
-      {modal === "order" && (
-        <Modal title="🛒 Tạo đơn đặt hàng" onClose={() => setModal(null)}>
-          <FormField label="Mã đại lý *">
-            <input style={inp} type="number" value={orderForm.maDaiLy} onChange={e => setOrderForm({ ...orderForm, maDaiLy: e.target.value })} placeholder="Nhập mã đại lý" />
-          </FormField>
-          <FormField label="Ghi chú">
-            <input style={inp} value={orderForm.ghiChu} onChange={e => setOrderForm({ ...orderForm, ghiChu: e.target.value })} placeholder="Tuỳ chọn" />
-          </FormField>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-            <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-            <PrimaryBtn onClick={taoDonHang}>Tạo đơn</PrimaryBtn>
-          </div>
-        </Modal>
+      {modal === "order" && authUser?.maDoiTuong && (
+        <OrderModal
+          maSieuThi={authUser.maDoiTuong}
+          onClose={() => setModal(null)}
+          onSaved={() => { loadApiOrders(); }}
+        />
       )}
 
       {modal === "chiTiet" && (
