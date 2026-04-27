@@ -254,6 +254,133 @@ function OrderModal({ onClose, onSaved, maSieuThi }: {
   );
 }
 
+// ─── Edit Order Modal ─────────────────────────────────────────────────────────
+interface ChiTietRowEdit { maLo: string; tenLo: string; soLuong: string; donGia: string; isExisting?: boolean; }
+
+function EditOrderModal({ order, onClose, onSaved }: {
+  order: ApiDonHang; onClose: () => void; onSaved: () => void;
+}) {
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [rows, setRows] = useState<ChiTietRowEdit[]>([]);
+  const [ghiChu, setGhiChu] = useState(order.GhiChu || "");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    // Load chi tiết đơn hiện tại (dùng SP getById đã có join ChiTietDonHang)
+    apiFetch(`/api/sieuthi/donhang/${order.MaDonHang}`)
+      .then((data: { MaLo: number; TenSanPham: string; SoLuong: number; DonGia: number }[]) => {
+        if (!Array.isArray(data) || data.length === 0) { setRows([]); return; }
+        setRows(data.map(d => ({ maLo: String(d.MaLo), tenLo: d.TenSanPham || "", soLuong: String(d.SoLuong), donGia: String(d.DonGia), isExisting: true })));
+      })
+      .catch(() => setErr("Không tải được chi tiết đơn"));
+    // Load danh sách lô để thêm mới
+    apiFetch("/api/lo-nong-san/get-all")
+      .then((data: { MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]) => setLots(data))
+      .catch(console.error);
+  }, [order.MaDonHang]);
+
+  function setRow(i: number, field: keyof ChiTietRowEdit, val: string) {
+    setRows(rs => rs.map((r, idx) => {
+      if (idx !== i) return r;
+      if (field === "maLo") {
+        const lot = lots.find(l => String(l.MaLo) === val);
+        return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" };
+      }
+      return { ...r, [field]: val };
+    }));
+  }
+
+  async function handleDeleteRow(row: ChiTietRowEdit, i: number) {
+    if (!row.isExisting) { setRows(rs => rs.filter((_, idx) => idx !== i)); return; }
+    if (!window.confirm("Xóa lô này khỏi đơn?")) return;
+    try {
+      await apiFetch("/api/sieuthi/donhang/xoa-chi-tiet", {
+        method: "DELETE",
+        body: JSON.stringify({ MaDonHang: order.MaDonHang, MaLo: Number(row.maLo) }),
+      });
+      setRows(rs => rs.filter((_, idx) => idx !== i));
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Lỗi xóa lô"); }
+  }
+
+  async function handleSave() {
+    setLoading(true); setErr("");
+    try {
+      // Cập nhật ghi chú
+      await apiFetch(`/api/sieuthi/donhang/${order.MaDonHang}/ghi-chu`, {
+        method: "PUT",
+        body: JSON.stringify({ GhiChu: ghiChu }),
+      });
+      // Cập nhật các dòng đã có
+      for (const row of rows.filter(r => r.isExisting && r.maLo && r.soLuong && r.donGia)) {
+        await apiFetch("/api/sieuthi/donhang/cap-nhat-chi-tiet", {
+          method: "PUT",
+          body: JSON.stringify({ MaDonHang: order.MaDonHang, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
+        });
+      }
+      // Thêm các dòng mới
+      for (const row of rows.filter(r => !r.isExisting && r.maLo && r.soLuong && r.donGia)) {
+        await apiFetch("/api/sieuthi/donhang/them-chi-tiet", {
+          method: "POST",
+          body: JSON.stringify({ MaDonHang: order.MaDonHang, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
+        });
+      }
+      onSaved(); onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi lưu đơn hàng");
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <Modal title={`✏️ Sửa đơn #${order.MaDonHang}`} onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
+      <div style={{ marginBottom: 14, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#555" }}>
+        Đại lý: <b>{order.TenDaiLy || "—"}</b>
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>Chi tiết đơn hàng</label>
+          <button onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: "", isExisting: false }])}
+            style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: "none", border: `1px solid ${C.primary}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
+            + Thêm lô
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6 }}>
+          {["Lô nông sản", "Số lượng (kg)", "Đơn giá (đ)", ""].map(h => (
+            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>{h}</div>
+          ))}
+        </div>
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+            {row.isExisting ? (
+              <div style={{ padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#333", border: "1.5px solid #dbeafe" }}>{row.tenLo || `Lô #${row.maLo}`}</div>
+            ) : (
+              <select style={inp} value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
+                {lots.length === 0 ? <option value="">— Không có lô —</option>
+                  : lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuongHienTai} kg)</option>)}
+              </select>
+            )}
+            <input style={inp} type="number" min="0" placeholder="Số lượng" value={row.soLuong}
+              onChange={e => setRow(i, "soLuong", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <input style={inp} type="number" min="0" placeholder="Đơn giá" value={row.donGia}
+              onChange={e => setRow(i, "donGia", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <button onClick={() => handleDeleteRow(row, i)}
+              style={{ background: "none", border: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>✕</button>
+          </div>
+        ))}
+        {rows.length === 0 && <p style={{ color: "#aaa", fontSize: 13, textAlign: "center", padding: "12px 0" }}>Chưa có lô nào</p>}
+      </div>
+      <FormField label="Ghi chú">
+        <input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú tuỳ chọn…" />
+      </FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
+        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu đơn"}</PrimaryBtn>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function SieuThiApp() {
   const authUser = getCurrentUser();
@@ -274,6 +401,7 @@ export default function SieuThiApp() {
   const [apiOrdersLoading, setApiOrdersLoading] = useState(false);
   const [apiOrdersErr, setApiOrdersErr] = useState("");
   const [editTarget, setEditTarget] = useState<Order | LoHang | null>(null);
+  const [editOrder, setEditOrder] = useState<ApiDonHang | null>(null);
 
   // Forms
   const [chiTietForm, setChiTietForm] = useState({ maDonHang: "", maLo: "", soLuong: "", donGia: "" });
@@ -326,6 +454,14 @@ export default function SieuThiApp() {
       await apiFetch(`/api/sieuthi/donhang/huy-don-hang/${id}`, { method: "PUT" });
       loadApiOrders();
     } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi hủy đơn"); }
+  };
+
+  const handleDeleteOrder = async (id: number) => {
+    if (!window.confirm("Xóa đơn hàng này? Chỉ xóa được đơn chưa nhận.")) return;
+    try {
+      await apiFetch(`/api/sieuthi/donhang/${id}`, { method: "DELETE" });
+      loadApiOrders();
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi xóa đơn"); }
   };
 
   const capNhatTrangThai = async () => {
@@ -492,11 +628,8 @@ export default function SieuThiApp() {
                   <Td style={{ color: "#aaa", fontSize: 11 }}>{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
                   <Td><StatusBadge status={o.TrangThai} /></Td>
                   <Td>
-                    <ActionBtn onClick={() => { setEditTrangThaiForm({ maDonHang: o.MaDonHang, trangThai: o.TrangThai }); setModal("editTrangThai"); }} color={C.primary}>Sửa TT</ActionBtn>
-                    <ActionBtn onClick={() => { setChiTietForm({ ...chiTietForm, maDonHang: String(o.MaDonHang) }); setModal("chiTiet"); }} color="#059669">+ Chi tiết</ActionBtn>
-                    {o.TrangThai !== "da_huy" && o.TrangThai !== "hoan_thanh" && (
-                      <ActionBtn onClick={() => huyDonHang(o.MaDonHang)} color="#dc2626">Hủy</ActionBtn>
-                    )}
+                    <ActionBtn onClick={() => { setEditOrder(o); setModal("editOrder"); }} color={C.primary}>Sửa</ActionBtn>
+                    <ActionBtn onClick={() => handleDeleteOrder(o.MaDonHang)} color="#dc2626">Xóa</ActionBtn>
                   </Td>
                 </tr>
               ))}
@@ -588,6 +721,14 @@ export default function SieuThiApp() {
         <OrderModal
           maSieuThi={authUser.maDoiTuong}
           onClose={() => setModal(null)}
+          onSaved={() => { loadApiOrders(); }}
+        />
+      )}
+
+      {modal === "editOrder" && editOrder && (
+        <EditOrderModal
+          order={editOrder}
+          onClose={() => { setModal(null); setEditOrder(null); }}
           onSaved={() => { loadApiOrders(); }}
         />
       )}

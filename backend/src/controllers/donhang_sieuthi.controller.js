@@ -120,6 +120,38 @@ const huyDonHang = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+const deleteDonHang = async (req, res) => {
+  try {
+    const pool = await getPool();
+    await pool.request()
+      .input('MaDonHang', sql.Int, req.params.id)
+      .execute('sp_DeleteDonHangSieuThi');
+    res.json({ message: 'Xóa đơn hàng thành công' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const getChiTiet = async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('MaDonHang', sql.Int, req.params.id)
+      .execute('sp_GetChiTietDonHangSieuThi');
+    res.json(result.recordset);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const updateGhiChu = async (req, res) => {
+  const { GhiChu } = req.body;
+  try {
+    const pool = await getPool();
+    await pool.request()
+      .input('MaDonHang', sql.Int, req.params.id)
+      .input('GhiChu', sql.NVarChar, GhiChu || null)
+      .query('UPDATE DonHang SET GhiChu = @GhiChu WHERE MaDonHang = @MaDonHang');
+    res.json({ message: 'Cập nhật ghi chú thành công' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 const updateTrangThai = async (req, res) => {
   const { TrangThai } = req.body;
   const validStatus = ['chua_nhan', 'da_nhan', 'dang_xu_ly', 'hoan_thanh', 'da_huy'];
@@ -139,4 +171,5 @@ module.exports = {
   getAll, getByDaiLy, getById, getDonHangBySieuThi,
   taoDonHang, themChiTiet, capNhatChiTiet, xoaChiTiet,
   nhanDonHang, huyDonHang, updateTrangThai,
+  deleteDonHang, getChiTiet, updateGhiChu,
 };
