@@ -250,3 +250,37 @@ AS BEGIN
     DELETE FROM KiemDinh WHERE MaKiemDinh = @MaKiemDinh
 END
 GO
+
+CREATE OR ALTER PROCEDURE sp_DeleteDonHangSieuThi
+    @MaDonHang INT
+AS BEGIN
+    IF NOT EXISTS (SELECT 1 FROM DonHang WHERE MaDonHang = @MaDonHang)
+        RAISERROR(N'Không tìm thấy đơn hàng', 16, 1)
+    ELSE IF NOT EXISTS (SELECT 1 FROM DonHang WHERE MaDonHang = @MaDonHang AND TrangThai = N'chua_nhan')
+        RAISERROR(N'Chỉ có thể xóa đơn hàng chưa nhận', 16, 1)
+    ELSE BEGIN
+        DELETE FROM ChiTietDonHang WHERE MaDonHang = @MaDonHang
+        DELETE FROM DonHangSieuThi  WHERE MaDonHang = @MaDonHang
+        DELETE FROM DonHang         WHERE MaDonHang = @MaDonHang
+    END
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_GetChiTietDonHangSieuThi
+    @MaDonHang INT
+AS BEGIN
+    SELECT ct.MaDonHang, ct.MaLo, ct.SoLuong, ct.DonGia, ct.ThanhTien,
+           sp.TenSanPham, sp.DonViTinh
+    FROM ChiTietDonHang ct
+    JOIN LoNongSan lo ON ct.MaLo = lo.MaLo
+    JOIN SanPham sp    ON lo.MaSanPham = sp.MaSanPham
+    WHERE ct.MaDonHang = @MaDonHang
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_UpdateGhiChuDonHangSieuThi
+    @MaDonHang INT, @GhiChu NVARCHAR(255) = NULL
+AS BEGIN
+    UPDATE DonHang SET GhiChu = @GhiChu WHERE MaDonHang = @MaDonHang
+END
+GO

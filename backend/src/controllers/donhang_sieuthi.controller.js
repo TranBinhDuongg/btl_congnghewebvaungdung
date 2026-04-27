@@ -123,20 +123,9 @@ const huyDonHang = async (req, res) => {
 const deleteDonHang = async (req, res) => {
   try {
     const pool = await getPool();
-    // Kiểm tra trạng thái
-    const check = await pool.request()
+    await pool.request()
       .input('MaDonHang', sql.Int, req.params.id)
-      .query('SELECT TrangThai FROM DonHang WHERE MaDonHang = @MaDonHang');
-    if (!check.recordset[0]) return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
-    if (check.recordset[0].TrangThai !== 'chua_nhan')
-      return res.status(400).json({ message: 'Chỉ có thể xóa đơn hàng chưa nhận' });
-    // Xóa theo thứ tự FK
-    await pool.request().input('MaDonHang', sql.Int, req.params.id)
-      .query('DELETE FROM ChiTietDonHang WHERE MaDonHang = @MaDonHang');
-    await pool.request().input('MaDonHang', sql.Int, req.params.id)
-      .query('DELETE FROM DonHangSieuThi WHERE MaDonHang = @MaDonHang');
-    await pool.request().input('MaDonHang', sql.Int, req.params.id)
-      .query('DELETE FROM DonHang WHERE MaDonHang = @MaDonHang');
+      .execute('sp_DeleteDonHangSieuThi');
     res.json({ message: 'Xóa đơn hàng thành công' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -146,12 +135,7 @@ const getChiTiet = async (req, res) => {
     const pool = await getPool();
     const result = await pool.request()
       .input('MaDonHang', sql.Int, req.params.id)
-      .query(`SELECT ct.MaDonHang, ct.MaLo, ct.SoLuong, ct.DonGia, ct.ThanhTien,
-                     sp.TenSanPham, sp.DonViTinh
-              FROM ChiTietDonHang ct
-              JOIN LoNongSan lo ON ct.MaLo = lo.MaLo
-              JOIN SanPham sp ON lo.MaSanPham = sp.MaSanPham
-              WHERE ct.MaDonHang = @MaDonHang`);
+      .execute('sp_GetChiTietDonHangSieuThi');
     res.json(result.recordset);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -163,7 +147,7 @@ const updateGhiChu = async (req, res) => {
     await pool.request()
       .input('MaDonHang', sql.Int, req.params.id)
       .input('GhiChu', sql.NVarChar, GhiChu || null)
-      .query('UPDATE DonHang SET GhiChu = @GhiChu WHERE MaDonHang = @MaDonHang');
+      .execute('sp_UpdateGhiChuDonHangSieuThi');
     res.json({ message: 'Cập nhật ghi chú thành công' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
