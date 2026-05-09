@@ -54,7 +54,7 @@ interface LoNongSan {
   SoLuongHienTai?: number;
 }
 
-const API = process.env.REACT_APP_API_URL || "";
+const API = "";
 
 async function apiFetch(path: string, opts?: RequestInit) {
   const res = await fetch(`${API}${path}`, {
@@ -68,10 +68,10 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   chua_nhan: { label: "Chưa nhận", color: "#b45309", bg: "#fef3c7" },
-  da_nhan: { label: "Đã nhận", color: "#059669", bg: "#d1fae5" },
-  da_huy: { label: "Đã hủy", color: "#6b7280", bg: "#f3f4f6" },
-  dang_xu_ly: { label: "Đang xử lý", color: "#1d4ed8", bg: "#dbeafe" },
-  hoan_thanh: { label: "Hoàn thành", color: "#15803d", bg: "#dcfce7" },
+  da_nhan:   { label: "Đã nhận",   color: "#059669", bg: "#d1fae5" },
+  da_huy:    { label: "Đã hủy",    color: "#6b7280", bg: "#f3f4f6" },
+  dang_xu_ly:{ label: "Đang xử lý",color: "#1d4ed8", bg: "#dbeafe" },
+  hoan_thanh:{ label: "Hoàn thành",color: "#15803d", bg: "#dcfce7" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -114,8 +114,8 @@ function StyledTable({ headers, children }: { headers: string[]; children: React
   );
 }
 
-function Td({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  return <td style={style}>{children}</td>;
+function Td({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  return <td className={className} style={style}>{children}</td>;
 }
 
 function ActionBtn({ children, onClick, color = "var(--primary)", disabled }: { children: ReactNode; onClick: () => void; color?: string; disabled?: boolean }) {
@@ -135,7 +135,7 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
     <div className="modal-overlay" onClick={onClose}>
       <div className={`modal-content ${wide ? 'wide' : ''}`} onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
-        <h3 className="panel-title" style={{ fontSize: 20, marginBottom: 24 }}>{title}</h3>
+        <h3 className="panel-title u-text-xl u-mb-6">{title}</h3>
         {children}
       </div>
     </div>
@@ -150,9 +150,6 @@ function FormField({ label, children }: { label: string; children: ReactNode }) 
     </div>
   );
 }
-
-// const inp: CSSProperties = { width: "100%", padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
-// Use .input and .select classes instead.
 
 // ─── OrderDetailModal ────────────────────────────────────────────────────────
 function OrderDetailModal({ donHang, onClose }: { donHang: DonHang; onClose: () => void }) {
@@ -171,13 +168,13 @@ function OrderDetailModal({ donHang, onClose }: { donHang: DonHang; onClose: () 
 
   return (
     <Modal title={`Chi tiết đơn hàng #${donHang.MaDonHang}`} onClose={onClose} wide>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16, marginBottom: 24, padding: 20, background: "#f8fafc", borderRadius: 12 }}>
-        <div><span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Đại lý</span><div style={{ fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{donHang.TenDaiLy || `#${donHang.MaDaiLy}`}</div></div>
-        <div><span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Trạng thái</span><div style={{ marginTop: 4 }}><StatusBadge status={donHang.TrangThai} /></div></div>
-        <div><span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Ngày đặt</span><div style={{ fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{donHang.NgayDat ? new Date(donHang.NgayDat).toLocaleDateString("vi-VN") : "—"}</div></div>
-        <div><span style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Ghi chú</span><div style={{ color: "#475569", marginTop: 4, fontSize: 13 }}>{donHang.GhiChu || "—"}</div></div>
+      <div className="u-grid u-gap-4 u-mb-6 u-bg-light u-rounded-lg u-p-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
+        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Đại lý</span><div className="u-font-black u-text-dark u-mt-3">{donHang.TenDaiLy || `#${donHang.MaDaiLy}`}</div></div>
+        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Trạng thái</span><div className="u-mt-3"><StatusBadge status={donHang.TrangThai} /></div></div>
+        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Ngày đặt</span><div className="u-font-black u-text-dark u-mt-3">{donHang.NgayDat ? new Date(donHang.NgayDat).toLocaleDateString("vi-VN") : "—"}</div></div>
+        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Ghi chú</span><div className="u-text-muted u-text-md u-mt-3">{donHang.GhiChu || "—"}</div></div>
       </div>
-      {loading ? <p style={{ textAlign: "center", color: "#aaa" }}>Đang tải...</p> : err ? <p style={{ color: "#dc2626" }}>{err}</p> : (
+      {loading ? <p className="empty-msg">Đang tải...</p> : err ? <p className="u-text-danger u-text-center">{err}</p> : (
         <>
           <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Đơn giá", "Thành tiền"]}>
             {chiTiet.map((c, i) => (
@@ -190,7 +187,7 @@ function OrderDetailModal({ donHang, onClose }: { donHang: DonHang; onClose: () 
               </tr>
             ))}
           </StyledTable>
-          <div style={{ textAlign: "right", marginTop: 14, fontSize: 15, fontWeight: 800, color: "#2563eb" }}>
+          <div className="u-text-right u-mt-4 u-text-lg u-font-black u-text-primary">
             Tổng giá trị: {tong.toLocaleString()} đ
           </div>
         </>
@@ -212,8 +209,8 @@ function OrderModal({ maSieuThi, onClose, onSaved }: { maSieuThi: number; onClos
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    apiFetch("/api/dai-ly/get-all").then(d => { setDaiLys(Array.isArray(d) ? d : []); }).catch(() => { });
-    apiFetch("/api/lo-nong-san/get-all").then(d => { setLots(Array.isArray(d) ? d : []); }).catch(() => { });
+    apiFetch("/api/dai-ly/get-all").then(d => { setDaiLys(Array.isArray(d) ? d : []); }).catch(() => {});
+    apiFetch("/api/lo-nong-san/get-all").then(d => { setLots(Array.isArray(d) ? d : []); }).catch(() => {});
   }, []);
 
   function setRow(i: number, field: keyof ChiTietRow, val: string) {
@@ -252,7 +249,7 @@ function OrderModal({ maSieuThi, onClose, onSaved }: { maSieuThi: number; onClos
 
   return (
     <Modal title="Tạo đơn hàng mới" onClose={onClose} wide>
-      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+      {err && <div className="error-msg">{err}</div>}
       <FormField label="Đại lý *">
         <select className="select" value={maDaiLy} onChange={e => setMaDaiLy(e.target.value)}>
           <option value="">-- Chọn đại lý --</option>
@@ -262,30 +259,30 @@ function OrderModal({ maSieuThi, onClose, onSaved }: { maSieuThi: number; onClos
       <FormField label="Ghi chú">
         <input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú đơn hàng..." />
       </FormField>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>Chi tiet san pham *</label>
+      <div className="u-mb-4">
+        <div className="u-flex u-justify-between u-items-center u-mb-2">
+          <label className="u-text-sm u-font-bold u-text-muted">Chi tiết sản phẩm *</label>
           <button onClick={() => setRows(rs => [...rs, { maDaiLy: "", maLo: "", tenSanPham: "", soLuong: "", donGia: "" }])}
-            style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", background: "none", border: "1px solid #2563eb", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>+ Them san pham</button>
+            className="u-text-sm u-font-bold u-text-primary u-border u-rounded-md u-px-2" style={{ background: "none", cursor: "pointer", padding: "4px 10px" }}>+ Thêm sản phẩm</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6 }}>
+        <div className="u-grid u-gap-2 u-mb-2" style={{ gridTemplateColumns: "2fr 1fr 1fr 28px" }}>
           {["Lô nông sản", "Số lượng", "Đơn giá (đ)", ""].map(h => (
-            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase" }}>{h}</div>
+            <div key={h} className="u-text-sm u-font-bold u-text-muted" style={{ textTransform: "uppercase" }}>{h}</div>
           ))}
         </div>
         {rows.map((row, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+          <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: "2fr 1fr 1fr 28px" }}>
             <select className="select" value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
               <option value="">-- Chọn lô --</option>
               {lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham}{l.SoLuongHienTai ? ` (còn ${l.SoLuongHienTai})` : ""}</option>)}
             </select>
             <input className="input" type="number" placeholder="SL" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} />
             <input className="input" type="number" placeholder="Giá" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} />
-            <button onClick={() => setRows(rs => rs.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#dc2626", fontSize: 20, cursor: "pointer", fontWeight: 700 }}>×</button>
+            <button onClick={() => setRows(rs => rs.filter((_, idx) => idx !== i))} className="u-text-danger u-text-xl u-font-bold" style={{ background: "none", border: "none", cursor: "pointer" }}>×</button>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24, borderTop: "1px solid #f1f5f9", paddingTop: 20 }}>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : "Tạo đơn hàng"}</PrimaryBtn>
       </div>
@@ -303,7 +300,7 @@ function EditOrderModal({ donHang, onClose, onSaved }: { donHang: DonHang; onClo
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    apiFetch("/api/lo-nong-san/get-all").then(d => setLots(Array.isArray(d) ? d : [])).catch(() => { });
+    apiFetch("/api/lo-nong-san/get-all").then(d => setLots(Array.isArray(d) ? d : [])).catch(() => {});
     apiFetch(`/api/sieuthi/donhang/${donHang.MaDonHang}/chi-tiet`)
       .then(d => setChiTiet(Array.isArray(d) ? d : d.chiTiet || []))
       .catch(e => setErr(e.message));
@@ -341,13 +338,13 @@ function EditOrderModal({ donHang, onClose, onSaved }: { donHang: DonHang; onClo
 
   return (
     <Modal title={`Sửa đơn hàng #${donHang.MaDonHang}`} onClose={onClose} wide>
-      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+      {err && <div className="error-msg">{err}</div>}
       <FormField label="Ghi chú">
         <input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} />
       </FormField>
-      <div style={{ marginBottom: 20 }}>
+      <div className="u-mb-5">
         <label className="form-label">Sản phẩm hiện tại</label>
-        {chiTiet.length === 0 ? <p style={{ color: "#aaa", fontSize: 13 }}>Chưa có sản phẩm</p> : (
+        {chiTiet.length === 0 ? <p className="u-text-muted u-text-sm">Chưa có sản phẩm</p> : (
           <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn giá", "Thành tiền", ""]}>
             {chiTiet.map(c => (
               <tr key={c.MaChiTiet}>
@@ -361,24 +358,24 @@ function EditOrderModal({ donHang, onClose, onSaved }: { donHang: DonHang; onClo
           </StyledTable>
         )}
       </div>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <label className="form-label">Thêm sản phẩm mới</label>
+      <div className="u-mb-4">
+        <div className="u-flex u-justify-between u-items-center u-mb-3">
+          <label className="form-label u-mb-1">Thêm sản phẩm mới</label>
           <button className="btn btn-secondary" style={{ padding: "4px 12px" }} onClick={() => setNewRows(rs => [...rs, { maDaiLy: "", maLo: "", tenSanPham: "", soLuong: "", donGia: "" }])}>+ Thêm</button>
         </div>
         {newRows.map((row, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 8, marginBottom: 8, alignItems: "center" }}>
+          <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: "2fr 1fr 1fr 28px" }}>
             <select className="select" value={row.maLo} onChange={e => setNewRows(rs => rs.map((r, idx) => idx === i ? { ...r, maLo: e.target.value } : r))}>
               <option value="">-- Chọn lô --</option>
               {lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham}</option>)}
             </select>
             <input className="input" type="number" placeholder="SL" value={row.soLuong} onChange={e => setNewRows(rs => rs.map((r, idx) => idx === i ? { ...r, soLuong: e.target.value } : r))} />
             <input className="input" type="number" placeholder="Giá" value={row.donGia} onChange={e => setNewRows(rs => rs.map((r, idx) => idx === i ? { ...r, donGia: e.target.value } : r))} />
-            <button onClick={() => setNewRows(rs => rs.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#dc2626", fontSize: 20, cursor: "pointer" }}>×</button>
+            <button onClick={() => setNewRows(rs => rs.filter((_, idx) => idx !== i))} className="u-text-danger u-text-xl" style={{ background: "none", border: "none", cursor: "pointer" }}>×</button>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24, borderTop: "1px solid #f1f5f9", paddingTop: 20 }}>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : "Lưu thay đổi"}</PrimaryBtn>
       </div>
@@ -417,7 +414,7 @@ function KhoModal({ kho, maSieuThi, onClose, onSaved }: { kho: KhoHang | null; m
 
   return (
     <Modal title={kho ? `Sửa kho: ${kho.TenKho}` : "Tạo kho mới"} onClose={onClose}>
-      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+      {err && <div className="error-msg">{err}</div>}
       <FormField label="Tên kho *">
         <input className="input" value={tenKho} onChange={e => setTenKho(e.target.value)} placeholder="Nhập tên kho..." />
       </FormField>
@@ -432,7 +429,7 @@ function KhoModal({ kho, maSieuThi, onClose, onSaved }: { kho: KhoHang | null; m
           </select>
         </FormField>
       )}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24, borderTop: "1px solid #f1f5f9", paddingTop: 20 }}>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : kho ? "Cập nhật" : "Tạo kho"}</PrimaryBtn>
       </div>
@@ -446,30 +443,30 @@ function ProfileModal({ onClose, onEdit }: { onClose: () => void; onEdit: () => 
   if (!user) return null;
   return (
     <Modal title="Thông tin tài khoản" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 20, padding: 24, background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)", borderRadius: 20, border: "1px solid #e2e8f0" }}>
+      <div className="u-flex u-flex-col u-gap-4">
+        <div className="u-flex u-items-center u-gap-5 u-p-6 u-rounded-lg u-border" style={{ background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)" }}>
           <div className="avatar" style={{ width: 64, height: 64, fontSize: 24 }}>
             {user.tenHienThi?.charAt(0).toUpperCase() || "S"}
           </div>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>{user.tenHienThi}</div>
-            <div style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Cửa hàng Siêu thị</div>
+            <div className="u-font-black u-text-lg u-text-dark">{user.tenHienThi}</div>
+            <div className="u-text-sm u-text-primary u-font-bold" style={{ textTransform: "uppercase", letterSpacing: 1 }}>Cửa hàng Siêu thị</div>
           </div>
         </div>
-        <div style={{ padding: "0 8px" }}>
+        <div className="u-px-2">
           {[
             { label: "Mã tài khoản", value: user.maTaiKhoan },
             { label: "Số điện thoại", value: user.soDienThoai || "—" },
             { label: "Email", value: user.email || "—" },
             { label: "Địa chỉ", value: user.diaChi || "—" },
           ].map(item => (
-            <div key={item.label} style={{ display: "flex", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid #f1f5f9" }}>
-              <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>{item.label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{String(item.value)}</span>
+            <div key={item.label} className="u-flex u-justify-between u-border-b" style={{ padding: "14px 0" }}>
+              <span className="u-text-sm u-text-muted u-font-medium">{item.label}</span>
+              <span className="u-text-sm u-font-bold u-text-dark">{String(item.value)}</span>
             </div>
           ))}
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+        <div className="u-flex u-justify-end u-mt-3">
           <PrimaryBtn onClick={onEdit}>Chỉnh sửa thông tin</PrimaryBtn>
         </div>
       </div>
@@ -499,12 +496,12 @@ function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   return (
     <Modal title="Chỉnh sửa thông tin" onClose={onClose}>
-      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+      {err && <div className="error-msg">{err}</div>}
       <FormField label="Họ tên"><input className="input" value={hoTen} onChange={e => setHoTen(e.target.value)} /></FormField>
       <FormField label="Số điện thoại"><input className="input" value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
       <FormField label="Email"><input className="input" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
       <FormField label="Địa chỉ"><input className="input" value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24, borderTop: "1px solid #f1f5f9", paddingTop: 20 }}>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : "Lưu thay đổi"}</PrimaryBtn>
       </div>
@@ -531,40 +528,40 @@ function DashboardSection({ donHangs, khoHangs, onViewOrder }: {
         <StatCard icon="✅" label="Đã nhận" value={daNhan} accent="#059669" />
         <StatCard icon="📦" label="Tồn kho (kg)" value={tonKho.toLocaleString()} accent="#7c3aed" />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24 }}>
+      <div className="u-grid u-gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))" }}>
         <Panel>
           <div className="panel-title">Đơn hàng gần đây</div>
           {donHangs.length === 0
-            ? <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0", fontSize: 13 }}>Chưa có đơn hàng nào</p>
+            ? <p className="empty-msg">Chưa có đơn hàng nào</p>
             : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng GT", "Ngày đặt", "TT"]}>
-              {donHangs.slice(0, 6).map(d => (
-                <tr key={d.MaDonHang} onClick={() => onViewOrder(d)} style={{ cursor: "pointer" }}>
-                  <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-                  <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
-                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                  <Td><StatusBadge status={d.TrangThai} /></Td>
-                </tr>
-              ))}
-            </StyledTable>
+                {donHangs.slice(0, 6).map(d => (
+                  <tr key={d.MaDonHang} onClick={() => onViewOrder(d)} style={{ cursor: "pointer" }}>
+                    <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
+                    <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
+                    <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+                    <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+                    <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                    <Td><StatusBadge status={d.TrangThai} /></Td>
+                  </tr>
+                ))}
+              </StyledTable>
           }
         </Panel>
         <Panel>
           <div className="panel-title">Tổng quan kho hàng</div>
           {khoHangs.length === 0
-            ? <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0", fontSize: 13 }}>Chưa có kho nào</p>
-            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-              {khoHangs.map(k => (
-                <div key={k.MaKho} style={{ padding: 20, background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)", borderRadius: 16, border: "1px solid #e2e8f0" }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: "#1e293b", marginBottom: 4 }}>{k.TenKho}</div>
-                  <div style={{ fontSize: 12, color: "#64748b" }}>{k.DiaChi || "—"}</div>
-                  <div style={{ fontSize: 15, color: "var(--primary)", marginTop: 12, fontWeight: 900 }}>
-                    {(k.TongTonKho || 0).toLocaleString()} <span style={{ fontSize: 11, fontWeight: 500 }}>kg</span>
+            ? <p className="empty-msg">Chưa có kho nào</p>
+            : <div className="u-grid u-gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+                {khoHangs.map(k => (
+                  <div key={k.MaKho} className="u-p-6 u-rounded-lg u-border" style={{ background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)" }}>
+                    <div className="u-font-black u-text-dark u-text-md u-mb-1">{k.TenKho}</div>
+                    <div className="u-text-sm u-text-muted">{k.DiaChi || "—"}</div>
+                    <div className="u-text-primary u-font-black u-mt-3" style={{ fontSize: 15 }}>
+                      {(k.TongTonKho || 0).toLocaleString()} <span className="u-text-sm u-font-medium">kg</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
           }
         </Panel>
       </div>
@@ -596,9 +593,9 @@ function OrdersSection({
 
   return (
     <Panel>
-      <div className="panel-title" style={{ flexWrap: "wrap", gap: 16 }}>
+      <div className="panel-title u-flex u-flex-wrap u-gap-4">
         <span>Quản lý đơn hàng</span>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="u-flex u-flex-wrap u-gap-3 u-items-center">
           <input
             className="input"
             style={{ width: 220, padding: "8px 16px" }}
@@ -616,31 +613,31 @@ function OrdersSection({
         </div>
       </div>
       {filtered.length === 0
-        ? <p style={{ textAlign: "center", color: "#aaa", padding: "40px 0", fontSize: 14 }}>Không tìm thấy đơn hàng nào</p>
+        ? <p className="empty-msg">Không tìm thấy đơn hàng nào</p>
         : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ghi chú", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-          {filtered.map(d => (
-            <tr key={d.MaDonHang}>
-              <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-              <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
-              <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-              <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-              <Td style={{ color: "#64748b", maxWidth: 160, fontSize: 12 }}>{d.GhiChu || "—"}</Td>
-              <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-              <Td><StatusBadge status={d.TrangThai} /></Td>
-              <Td>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
-                  {d.TrangThai === "chua_nhan" && <>
-                    <ActionBtn onClick={() => onEdit(d)} color="#7c3aed">Sửa</ActionBtn>
-                    <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Nhận</ActionBtn>
-                    <ActionBtn onClick={() => onHuy(d.MaDonHang)} color="#d97706">Hủy</ActionBtn>
-                    <ActionBtn onClick={() => onXoa(d.MaDonHang)} color="#dc2626">Xóa</ActionBtn>
-                  </>}
-                </div>
-              </Td>
-            </tr>
-          ))}
-        </StyledTable>
+            {filtered.map(d => (
+              <tr key={d.MaDonHang}>
+                <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
+                <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
+                <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+                <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+                <Td className="u-text-muted u-text-sm" style={{ maxWidth: 160 }}>{d.GhiChu || "—"}</Td>
+                <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                <Td><StatusBadge status={d.TrangThai} /></Td>
+                <Td>
+                  <div className="u-flex u-gap-1">
+                    <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
+                    {d.TrangThai === "chua_nhan" && <>
+                      <ActionBtn onClick={() => onEdit(d)} color="#7c3aed">Sửa</ActionBtn>
+                      <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Nhận</ActionBtn>
+                      <ActionBtn onClick={() => onHuy(d.MaDonHang)} color="#d97706">Hủy</ActionBtn>
+                      <ActionBtn onClick={() => onXoa(d.MaDonHang)} color="#dc2626">Xóa</ActionBtn>
+                    </>}
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </StyledTable>
       }
     </Panel>
   );
@@ -671,25 +668,25 @@ function ReceiveSection({
       <Panel>
         <div className="panel-title">Đơn hàng chờ nhận hàng</div>
         {choNhan.length === 0
-          ? <p style={{ textAlign: "center", color: "#aaa", padding: "40px 0", fontSize: 14 }}>Không có đơn hàng nào chờ nhận</p>
+          ? <p className="empty-msg">Không có đơn hàng nào chờ nhận</p>
           : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-            {choNhan.map(d => (
-              <tr key={d.MaDonHang}>
-                <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-                <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
-                <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                <Td><StatusBadge status={d.TrangThai} /></Td>
-                <Td>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
-                    <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Xác nhận nhận hàng</ActionBtn>
-                  </div>
-                </Td>
-              </tr>
-            ))}
-          </StyledTable>
+              {choNhan.map(d => (
+                <tr key={d.MaDonHang}>
+                  <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
+                  <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
+                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                  <Td><StatusBadge status={d.TrangThai} /></Td>
+                  <Td>
+                    <div className="u-flex u-gap-2">
+                      <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
+                      <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Xác nhận nhận hàng</ActionBtn>
+                    </div>
+                  </Td>
+                </tr>
+              ))}
+            </StyledTable>
         }
       </Panel>
     </div>
@@ -717,40 +714,40 @@ function InventorySection({
         <StatCard icon="🌿" label="Loại sản phẩm" value={loaiSanPham} accent="#059669" />
       </div>
       <Panel>
-        <div className="panel-title">
+        <div className="panel-title u-flex u-justify-between u-items-center">
           <span>Quản lý kho hàng</span>
           <PrimaryBtn onClick={onNewKho}>+ Tạo kho mới</PrimaryBtn>
         </div>
         {khoHangs.length === 0
-          ? <p style={{ textAlign: "center", color: "#aaa", padding: "40px 0", fontSize: 14 }}>Chưa có kho nào</p>
+          ? <p className="empty-msg">Chưa có kho nào</p>
           : khoHangs.map(k => (
-            <div key={k.MaKho} style={{ marginBottom: 24, border: "1px solid #f1f5f9", borderRadius: 16, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-                <div>
-                  <span style={{ fontWeight: 900, fontSize: 15, color: "#0f172a" }}>{k.TenKho}</span>
-                  {k.DiaChi && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 12, fontWeight: 500 }}>{k.DiaChi}</span>}
+              <div key={k.MaKho} className="u-mb-6 u-border u-rounded-lg" style={{ overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+                <div className="u-flex u-justify-between u-items-center u-p-4 u-bg-light u-border-b">
+                  <div>
+                    <span className="u-font-black u-text-dark" style={{ fontSize: 15 }}>{k.TenKho}</span>
+                    {k.DiaChi && <span className="u-text-sm u-text-muted u-font-medium" style={{ marginLeft: 12 }}>{k.DiaChi}</span>}
+                  </div>
+                  <div className="u-flex u-gap-3 u-items-center">
+                    <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "var(--primary)", padding: "6px 14px" }}>Tồn kho: {(k.TongTonKho || 0).toLocaleString()} kg</span>
+                    <ActionBtn onClick={() => onEditKho(k)} color="#7c3aed">Sửa</ActionBtn>
+                    <ActionBtn onClick={() => onDeleteKho(k.MaKho)} color="#dc2626">Xóa</ActionBtn>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "var(--primary)", padding: "6px 14px" }}>Tồn kho: {(k.TongTonKho || 0).toLocaleString()} kg</span>
-                  <ActionBtn onClick={() => onEditKho(k)} color="#7c3aed">Sửa</ActionBtn>
-                  <ActionBtn onClick={() => onDeleteKho(k.MaKho)} color="#dc2626">Xóa</ActionBtn>
-                </div>
+                {k.SanPham && k.SanPham.length > 0 ? (
+                  <div style={{ padding: "8px 20px 20px" }}>
+                    <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn vị"]}>
+                      {k.SanPham.map((sp, i) => (
+                        <tr key={i}>
+                          <Td><b>{sp.TenSanPham}</b></Td>
+                          <Td>{sp.SoLuong.toLocaleString()}</Td>
+                          <Td>{sp.DonVi || "kg"}</Td>
+                        </tr>
+                      ))}
+                    </StyledTable>
+                  </div>
+                ) : <p className="empty-msg">Kho trống</p>}
               </div>
-              {k.SanPham && k.SanPham.length > 0 ? (
-                <div style={{ padding: "8px 20px 20px" }}>
-                  <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn vị"]}>
-                    {k.SanPham.map((sp, i) => (
-                      <tr key={i}>
-                        <Td><b>{sp.TenSanPham}</b></Td>
-                        <Td>{sp.SoLuong.toLocaleString()}</Td>
-                        <Td>{sp.DonVi || "kg"}</Td>
-                      </tr>
-                    ))}
-                  </StyledTable>
-                </div>
-              ) : <p style={{ padding: 20, color: "#aaa", fontSize: 13, textAlign: "center" }}>Kho trống</p>}
-            </div>
-          ))
+            ))
         }
       </Panel>
     </div>
@@ -788,58 +785,58 @@ function ReportsSection({ donHangs }: { donHangs: DonHang[] }) {
 
   return (
     <div>
-      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <div className="u-grid u-gap-5 u-mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         {kpis.map(k => (
-          <Panel key={k.label} style={{ textAlign: "center", borderTop: `4px solid ${k.color}` }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>{k.icon}</div>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 6, fontWeight: 700, textTransform: "uppercase" }}>{k.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: k.color }}>{k.value}</div>
+          <Panel key={k.label} className="u-text-center" style={{ borderTop: `4px solid ${k.color}` }}>
+            <div className="u-text-2xl u-mb-3">{k.icon}</div>
+            <div className="u-text-sm u-text-muted u-font-bold u-mb-2" style={{ textTransform: "uppercase" }}>{k.label}</div>
+            <div className="u-text-xl u-font-black" style={{ color: k.color }}>{k.value}</div>
           </Panel>
         ))}
       </div>
-      <Panel style={{ marginBottom: 24 }}>
+      <Panel className="u-mb-6">
         <div className="panel-title">Thống kê theo đại lý</div>
         {daiLyStats.length === 0
-          ? <p style={{ color: "#aaa", textAlign: "center", padding: "40px 0", fontSize: 14 }}>Chưa có dữ liệu</p>
+          ? <p className="empty-msg">Chưa có dữ liệu</p>
           : <StyledTable headers={["Đại lý", "Tổng đơn", "Đã nhận", "Tỉ lệ nhận", "Tổng giá trị"]}>
-            {daiLyStats.map((dl, i) => {
-              const tl = dl.tongDon > 0 ? Math.round((dl.daNhan / dl.tongDon) * 100) : 0;
-              return (
-                <tr key={i}>
-                  <Td><b>{dl.ten}</b></Td>
-                  <Td>{dl.tongDon}</Td>
-                  <Td>{dl.daNhan}</Td>
-                  <Td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                        <div style={{ width: `${tl}%`, height: "100%", background: "linear-gradient(90deg, #10b981 0%, #059669 100%)", borderRadius: 4 }} />
+              {daiLyStats.map((dl, i) => {
+                const tl = dl.tongDon > 0 ? Math.round((dl.daNhan / dl.tongDon) * 100) : 0;
+                return (
+                  <tr key={i}>
+                    <Td><b>{dl.ten}</b></Td>
+                    <Td>{dl.tongDon}</Td>
+                    <Td>{dl.daNhan}</Td>
+                    <Td>
+                      <div className="u-flex u-items-center u-gap-3">
+                        <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                          <div style={{ width: `${tl}%`, height: "100%", background: "linear-gradient(90deg, #10b981 0%, #059669 100%)", borderRadius: 4 }} />
+                        </div>
+                        <span className="u-text-sm u-font-black u-text-success" style={{ minWidth: 40 }}>{tl}%</span>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "#059669", minWidth: 40 }}>{tl}%</span>
-                    </div>
-                  </Td>
-                  <Td><b>{dl.tongGiaTri.toLocaleString()} đ</b></Td>
-                </tr>
-              );
-            })}
-          </StyledTable>
+                    </Td>
+                    <Td><b>{dl.tongGiaTri.toLocaleString()} đ</b></Td>
+                  </tr>
+                );
+              })}
+            </StyledTable>
         }
       </Panel>
       <Panel>
         <div className="panel-title">Lịch sử đơn hàng đầy đủ</div>
         {donHangs.length === 0
-          ? <p style={{ color: "#aaa", textAlign: "center", padding: "24px 0", fontSize: 13 }}>Chưa có đơn hàng nào</p>
+          ? <p className="empty-msg">Chưa có đơn hàng nào</p>
           : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ngày đặt", "Trạng thái"]}>
-            {donHangs.map(d => (
-              <tr key={d.MaDonHang}>
-                <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-                <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
-                <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                <Td><StatusBadge status={d.TrangThai} /></Td>
-              </tr>
-            ))}
-          </StyledTable>
+              {donHangs.map(d => (
+                <tr key={d.MaDonHang}>
+                  <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
+                  <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
+                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                  <Td><StatusBadge status={d.TrangThai} /></Td>
+                </tr>
+              ))}
+            </StyledTable>
         }
       </Panel>
     </div>
@@ -854,7 +851,7 @@ export default function SieuThiApp() {
     if (!authUser || authUser.role !== "sieuthi") {
       window.location.href = "/login";
     }
-  }, []);
+  }, [authUser]);
 
   const maSieuThi = authUser?.maDoiTuong || 0;
 
@@ -896,7 +893,7 @@ export default function SieuThiApp() {
     }
   }
 
-  useEffect(() => { loadData(); }, [maSieuThi]);
+  useEffect(() => { loadData(); }, [maSieuThi]); // loadData is defined inside component but not memoized, using maSieuThi is enough
 
   async function handleNhan(id: number) {
     if (!window.confirm("Xác nhận nhận hàng đơn #" + id + "?")) return;
@@ -943,10 +940,10 @@ export default function SieuThiApp() {
 
   const navItems: { id: Section; icon: string; label: string }[] = [
     { id: "dashboard", icon: "📊", label: "Tổng quan" },
-    { id: "orders", icon: "📋", label: "Quản lý đơn hàng" },
-    { id: "receive", icon: "📥", label: "Nhận hàng" },
+    { id: "orders",    icon: "📋", label: "Quản lý đơn hàng" },
+    { id: "receive",   icon: "📥", label: "Nhận hàng" },
     { id: "inventory", icon: "🏪", label: "Quản lý kho" },
-    { id: "reports", icon: "📈", label: "Báo cáo thống kê" },
+    { id: "reports",   icon: "📈", label: "Báo cáo thống kê" },
   ];
 
   return (
@@ -971,9 +968,9 @@ export default function SieuThiApp() {
             <div className="avatar">
               {authUser.tenHienThi?.charAt(0).toUpperCase() || "S"}
             </div>
-            <div style={{ textAlign: "left", overflow: "hidden" }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{authUser.tenHienThi}</div>
-              <div style={{ fontSize: 11, color: "var(--primary-light)", fontWeight: 600 }}>Cửa hàng của tôi</div>
+            <div className="u-text-left" style={{ overflow: "hidden" }}>
+              <div className="u-font-black u-text-md" style={{ color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{authUser.tenHienThi}</div>
+              <div className="u-text-sm u-font-bold" style={{ color: "var(--primary-light)" }}>Cửa hàng của tôi</div>
             </div>
           </button>
           <button className="logout-btn" onClick={handleLogout}>
@@ -986,19 +983,19 @@ export default function SieuThiApp() {
       <div className="main-content">
         <div className="page-header">
           <h2 className="page-title">
-            <span style={{ fontSize: 32 }}>{navItems.find(n => n.id === activeSection)?.icon}</span>
+            <span className="u-text-2xl">{navItems.find(n => n.id === activeSection)?.icon}</span>
             {navItems.find(n => n.id === activeSection)?.label}
           </h2>
           <p className="page-subtitle">Chào mừng trở lại, {authUser.tenHienThi}</p>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: "100px 0" }}>
+          <div className="u-text-center u-py-10">
             <div className="spinner" style={{ border: "4px solid #f3f3f3", borderTop: "4px solid var(--primary)", borderRadius: "50%", width: 40, height: 40, animation: "spin 1s linear infinite", margin: "0 auto 20px" }}></div>
-            <div style={{ color: "#64748b", fontSize: 16, fontWeight: 500 }}>Đang tải dữ liệu...</div>
+            <div className="u-text-muted u-text-lg u-font-medium">Đang tải dữ liệu...</div>
           </div>
         ) : (
-          <div className="section-content" key={activeSection} style={{ animation: "fadeIn 0.3s ease-out" }}>
+          <div className="section-content u-fade-in" key={activeSection}>
             {activeSection === "dashboard" && (
               <DashboardSection donHangs={donHangs} khoHangs={khoHangs} onViewOrder={setViewOrder} />
             )}
@@ -1035,7 +1032,7 @@ export default function SieuThiApp() {
       {/* Toast */}
       {toast && (
         <div className="toast" style={{ background: toast.type === "success" ? "var(--success)" : "var(--danger)" }}>
-          <span style={{ fontSize: 18 }}>{toast.type === "success" ? "✓" : "✕"}</span>
+          <span className="u-text-lg">{toast.type === "success" ? "✓" : "✕"}</span>
           {toast.msg}
         </div>
       )}
@@ -1048,7 +1045,7 @@ export default function SieuThiApp() {
       {editKho && <KhoModal kho={editKho} maSieuThi={maSieuThi} onClose={() => setEditKho(null)} onSaved={() => { loadData(); showToast("Cập nhật kho thành công!"); }} />}
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} onEdit={() => { setShowProfile(false); setShowEditProfile(true); }} />}
       {showEditProfile && <EditProfileModal onClose={() => setShowEditProfile(false)} onSaved={() => { showToast("Cập nhật thông tin thành công!"); }} />}
-
+      
       <style>{`
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       `}</style>

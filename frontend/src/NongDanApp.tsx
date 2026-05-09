@@ -465,7 +465,7 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
         if (!maSanPham && list.length > 0) setMaSanPham(list[0].MaSanPham);
       })
       .catch(() => {});
-  }, []);
+  }, [isEdit, maSanPham]);
 
   return (
     <Modal title={isEdit ? "Chỉnh sửa lô sản phẩm" : "Đăng ký lô sản phẩm mới"} onClose={onClose}>
@@ -554,7 +554,7 @@ export default function NongDanApp() {
     if (!authUser || authUser.role !== "nongdan") {
       window.location.href = "/login";
     }
-  }, []);
+  }, [authUser]);
 
   const [userInfo, setUserInfo] = useState<Partial<User>>({
     fullName: authUser?.tenHienThi || "",

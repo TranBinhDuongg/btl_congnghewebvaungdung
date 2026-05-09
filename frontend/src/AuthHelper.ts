@@ -41,7 +41,7 @@ export interface ResetPasswordPayload {
   newPassword: string;
 }
 
-const API = process.env.REACT_APP_API_URL || "";
+const API = "";
 const USER_KEY = "agrichain_user";
 
 export function getCurrentUser(): AuthUser | null {
