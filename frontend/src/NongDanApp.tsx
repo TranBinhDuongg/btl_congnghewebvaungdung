@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ReactNode, CSSProperties } from "react";
+import "./NongDanApp.css";
 import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_MAP[status] ?? { label: status, color: "#555", bg: "#f3f4f6" };
   return (
-    <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: s.color, background: s.bg }}>
+    <span className="badge" style={{ color: s.color, background: s.bg }}>
       {s.label}
     </span>
   );
@@ -73,214 +74,251 @@ function daysUntil(dateStr: string) {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-// ─── Shared micro-components ──────────────────────────────────────────────────
-function StyledTable({ headers, children }: { headers: string[]; children: React.ReactNode }) {
+// ─── Shared UI Components ─────────────────────────────────────────────────────
+
+function Panel({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  return <div className={`panel ${className}`} style={style}>{children}</div>;
+}
+
+function StatCard({ icon, label, value, accent }: { icon: string; label: string; value: string | number; accent: string }) {
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-        <thead><tr>{headers.map(h => (
-          <th key={h} style={{ textAlign: "left", padding: "8px 12px", background: "#f8faf8", color: "#163d2b", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
-        ))}</tr></thead>
+    <div className="stat-card" style={{ "--accent": accent } as any}>
+      <div className="stat-icon">{icon}</div>
+      <div>
+        <div className="stat-value">{value}</div>
+        <div className="stat-label">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function StyledTable({ headers, children }: { headers: string[]; children: ReactNode }) {
+  return (
+    <div className="table-container">
+      <table>
+        <thead>
+          <tr>
+            {headers.map(h => <th key={h}>{h}</th>)}
+          </tr>
+        </thead>
         <tbody>{children}</tbody>
       </table>
     </div>
   );
 }
-function Td({ children }: { children: React.ReactNode }) {
-  return <td style={{ padding: "10px 12px", verticalAlign: "middle" }}>{children}</td>;
+
+function Td({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <td className={className}>{children}</td>;
 }
-function ActionBtn({ children, onClick, color }: { children: React.ReactNode; onClick: () => void; color: string }) {
+
+function ActionBtn({ children, onClick, color = "var(--primary)", disabled }: { children: ReactNode; onClick: () => void; color?: string; disabled?: boolean }) {
   return (
-    <button onClick={onClick} style={{ marginRight: 5, padding: "4px 10px", background: color, color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-      {children}
-    </button>
-  );
-}
-function Btn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <button onClick={onClick} style={{ padding: "9px 18px", background: "linear-gradient(135deg,#4caf50,#1a6b2a)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, letterSpacing: 0.3 }}>
+    <button className="btn btn-action" onClick={onClick} disabled={disabled} style={{ background: disabled ? "#ccc" : color, marginRight: 5 }}>
       {children}
     </button>
   );
 }
 
-// ─── Modal ────────────────────────────────────────────────────────────────────
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function PrimaryBtn({ children, onClick, className = "", disabled }: { children: ReactNode; onClick?: () => void; className?: string; disabled?: boolean }) {
+  return <button className={`btn btn-primary ${className}`} disabled={disabled} onClick={onClick}>{children}</button>;
+}
+
+function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 480, maxWidth: "94vw", maxHeight: "88vh", overflowY: "auto", position: "relative", boxShadow: "0 8px 40px #0003" }} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa" }}>✕</button>
-        <h3 style={{ marginBottom: 18, color: "#163d2b", fontWeight: 800, fontSize: 17 }}>{title}</h3>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className={`modal-content ${wide ? 'wide' : ''}`} onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <h3 className="panel-title u-text-xl u-mb-6">{title}</h3>
         {children}
       </div>
     </div>
   );
 }
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+
+function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 5 }}>{label}</label>
+    <div className="form-field">
+      <label className="form-label">{label}</label>
       {children}
     </div>
   );
 }
-const inputStyle: React.CSSProperties = { width: "100%", padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", fontFamily: "inherit" };
 
 // ─── Sections ─────────────────────────────────────────────────────────────────
 function Dashboard({ farms, batches, orders }: { farms: Farm[]; batches: Batch[]; orders: Order[] }) {
   const alerts = batches.filter(b => daysUntil(b.expiry) <= 14);
   const kpis: KpiData = { farms: farms.length, batches: batches.length, orders: orders.length, alerts: alerts.length };
-  const kpiItems = [
-    { label: "Trang trại",   value: kpis.farms,   icon: "🌿", accent: "#16a34a" },
-    { label: "Lô sản phẩm",  value: kpis.batches, icon: "📦", accent: "#2563eb" },
-    { label: "Đơn hàng",     value: kpis.orders,  icon: "📋", accent: "#7c3aed" },
-    { label: "Cảnh báo hạn sử dụng", value: kpis.alerts,  icon: "⚠️", accent: "#dc2626" },
-  ];
+
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16, marginBottom: 28 }}>
-        {kpiItems.map(k => (
-          <div key={k.label} style={{ background: "#fff", borderRadius: 14, padding: "22px 20px", boxShadow: "0 1px 8px #0000000a", borderTop: `4px solid ${k.accent}`, display: "flex", alignItems: "center", gap: 14 }}>
-            <span style={{ fontSize: 28 }}>{k.icon}</span>
-            <div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#111", lineHeight: 1 }}>{k.value}</div>
-              <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{k.label}</div>
-            </div>
-          </div>
-        ))}
+      <div className="stat-grid">
+        <StatCard icon="🌿" label="Trang trại" value={kpis.farms} accent="#16a34a" />
+        <StatCard icon="📦" label="Lô sản phẩm" value={kpis.batches} accent="#2563eb" />
+        <StatCard icon="📋" label="Đơn hàng" value={kpis.orders} accent="#7c3aed" />
+        <StatCard icon="⚠️" label="Cảnh báo hạn SD" value={kpis.alerts} accent="#dc2626" />
       </div>
-      <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-        <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 14 }}>⚠️ Cảnh báo hạn sử dụng (≤ 14 ngày)</h4>
+      <Panel>
+        <div className="panel-title">⚠️ Cảnh báo hạn sử dụng (≤ 14 ngày)</div>
         {alerts.length === 0 ? (
-          <p style={{ color: "#aaa", textAlign: "center", padding: "24px 0" }}>Không có cảnh báo nào</p>
+          <p className="empty-msg">Không có cảnh báo nào</p>
         ) : (
           <StyledTable headers={["Mã lô", "Sản phẩm", "Hạn dùng", "Còn lại"]}>
             {alerts.map(b => {
               const days = daysUntil(b.expiry);
+              const daysClass = days <= 7 ? "u-text-danger u-font-bold" : "u-text-warning u-font-bold";
               return (
-                <tr key={b.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                  <Td>{b.id}</Td><Td><b>{b.product}</b></Td><Td>{b.expiry}</Td>
-                  <Td><span style={{ color: days <= 7 ? "#dc2626" : "#d97706", fontWeight: 700 }}>{days} ngày</span></Td>
+                <tr key={b.id}>
+                  <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
+                  <Td><b>{b.product}</b></Td><Td>{b.expiry}</Td>
+                  <Td><span className={daysClass}>{days} ngày</span></Td>
                 </tr>
               );
             })}
           </StyledTable>
         )}
-      </div>
+      </Panel>
     </div>
   );
 }
 
 function FarmsSection({ farms, onNew, onEdit, onDelete }: { farms: Farm[]; onNew: () => void; onEdit: (f: Farm) => void; onDelete: (id: string) => void }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-      <StyledTable headers={["ID", "Tên trang trại", "Địa chỉ", "Chứng nhận", "Hành động"]}>
-        {farms.map(f => (
-          <tr key={f.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-            <Td><code style={{ fontSize: 11, color: "#888" }}>{f.id}</code></Td>
-            <Td><b>{f.name}</b></Td><Td>{f.address}</Td>
-            <Td><span style={{ background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{f.cert || "—"}</span></Td>
-            <Td><ActionBtn onClick={() => onEdit(f)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDelete(f.id)} color="#dc2626">Xóa</ActionBtn></Td>
-          </tr>
-        ))}
-      </StyledTable>
-    </div>
+    <Panel>
+      <div className="panel-title u-flex u-flex-wrap u-gap-4 u-items-center">
+        <span>Quản lý trang trại</span>
+        <PrimaryBtn onClick={onNew}>+ Thêm trang trại</PrimaryBtn>
+      </div>
+      {farms.length === 0 ? (
+        <p className="empty-msg">Chưa có trang trại nào</p>
+      ) : (
+        <StyledTable headers={["ID", "Tên trang trại", "Địa chỉ", "Chứng nhận", "Hành động"]}>
+          {farms.map(f => (
+            <tr key={f.id}>
+              <Td><code className="u-text-sm u-text-primary u-font-bold">#{f.id}</code></Td>
+              <Td><b>{f.name}</b></Td><Td>{f.address}</Td>
+              <Td><span className="badge" style={{ background: "rgba(21, 128, 61, 0.1)", color: "#15803d" }}>{f.cert || "—"}</span></Td>
+              <Td>
+                <div className="u-flex u-gap-2">
+                  <ActionBtn onClick={() => onEdit(f)} color="#2563eb">Sửa</ActionBtn>
+                  <ActionBtn onClick={() => onDelete(f.id)} color="#dc2626">Xóa</ActionBtn>
+                </div>
+              </Td>
+            </tr>
+          ))}
+        </StyledTable>
+      )}
+    </Panel>
   );
 }
 
 function BatchesSection({ batches, onNew, onEdit, onDelete }: { batches: Batch[]; onNew: () => void; onEdit: (b: Batch) => void; onDelete: (id: string) => void }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-      <StyledTable headers={["Mã lô", "Trang trại", "Sản phẩm", "Số lượng", "Thu hoạch", "Hạn dùng", "Chứng nhận", "Trạng thái", ""]}>
-        {batches.map(b => (
-          <tr key={b.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-            <Td><code style={{ fontSize: 11, color: "#888" }}>{b.id}</code></Td>
-            <Td>{b.farmName}</Td>
-            <Td><b>{b.product}</b></Td>
-            <Td>{b.soLuongBanDau} kg</Td>
-            <Td>{b.harvest || "—"}</Td>
-            <Td>{b.expiry}</Td>
-            <Td><span style={{ fontSize: 11, color: "#888" }}>{b.soChungNhan || "—"}</span></Td>
-            <Td><StatusBadge status={b.status} /></Td>
-            <Td><ActionBtn onClick={() => onEdit(b)} color="#2563eb">Sửa</ActionBtn><ActionBtn onClick={() => onDelete(b.id)} color="#dc2626">Xóa</ActionBtn></Td>
-          </tr>
-        ))}
-      </StyledTable>
-    </div>
+    <Panel>
+      <div className="panel-title u-flex u-flex-wrap u-gap-4 u-items-center">
+        <span>Quản lý lô sản phẩm</span>
+        <PrimaryBtn onClick={onNew}>+ Đăng ký lô mới</PrimaryBtn>
+      </div>
+      {batches.length === 0 ? (
+        <p className="empty-msg">Chưa có lô sản phẩm nào</p>
+      ) : (
+        <StyledTable headers={["Mã lô", "Trang trại", "Sản phẩm", "Số lượng", "Thu hoạch", "Hạn dùng", "Chứng nhận", "Trạng thái", "Hành động"]}>
+          {batches.map(b => (
+            <tr key={b.id}>
+              <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
+              <Td>{b.farmName}</Td>
+              <Td><b>{b.product}</b></Td>
+              <Td>{b.soLuongBanDau} kg</Td>
+              <Td>{b.harvest || "—"}</Td>
+              <Td>{b.expiry}</Td>
+              <Td><span className="u-text-sm u-text-muted">{b.soChungNhan || "—"}</span></Td>
+              <Td><StatusBadge status={b.status} /></Td>
+              <Td>
+                <div className="u-flex u-gap-2">
+                  <ActionBtn onClick={() => onEdit(b)} color="#2563eb">Sửa</ActionBtn>
+                  <ActionBtn onClick={() => onDelete(b.id)} color="#dc2626">Xóa</ActionBtn>
+                </div>
+              </Td>
+            </tr>
+          ))}
+        </StyledTable>
+      )}
+    </Panel>
   );
 }
 
 function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]; onAccept: (id: string) => void; onShip: (id: string) => void; onCancel: (id: string) => void }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-      <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 14 }}>Đơn hàng từ Đại lý</h4>
+    <Panel>
+      <div className="panel-title">Đơn hàng từ Đại lý</div>
       {orders.length === 0 ? (
-        <p style={{ color: "#aaa", textAlign: "center", padding: "24px 0" }}>Chưa có đơn hàng nào</p>
+        <p className="empty-msg">Chưa có đơn hàng nào</p>
       ) : (
         <StyledTable headers={["Mã đơn", "Sản phẩm", "Số lượng", "Đại lý", "Ngày đặt", "Trạng thái", "Hành động"]}>
           {orders.map(o => (
-            <tr key={o.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-              <Td><code style={{ fontSize: 11, color: "#888" }}>{o.id}</code></Td>
+            <tr key={o.id}>
+              <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
               <Td><b>{o.product || "—"}</b></Td>
               <Td>{o.quantity > 0 ? `${o.quantity} kg` : "—"}</Td>
               <Td>{o.agentName}</Td>
               <Td>{o.date}</Td>
               <Td><StatusBadge status={o.status} /></Td>
               <Td>
-                {o.status === "chua_nhan" && (
-                  <>
-                    <ActionBtn onClick={() => onAccept(o.id)} color="#16a34a">✓ Xác nhận</ActionBtn>
-                    <ActionBtn onClick={() => {
-                      if (window.confirm("Hủy đơn hàng này?")) onCancel(o.id);
-                    }} color="#dc2626">✕ Hủy</ActionBtn>
-                  </>
-                )}
-                {o.status === "da_nhan" && (
-                  <ActionBtn onClick={() => onShip(o.id)} color="#7c3aed">📦 Xuất hàng</ActionBtn>
-                )}
-                {(o.status === "hoan_thanh" || o.status === "da_huy") && (
-                  <span style={{ fontSize: 11, color: "#aaa" }}>—</span>
-                )}
+                <div className="u-flex u-gap-2">
+                  {o.status === "chua_nhan" && (
+                    <>
+                      <ActionBtn onClick={() => onAccept(o.id)} color="#059669">✓ Xác nhận</ActionBtn>
+                      <ActionBtn onClick={() => {
+                        if (window.confirm("Hủy đơn hàng này?")) onCancel(o.id);
+                      }} color="#dc2626">✕ Hủy</ActionBtn>
+                    </>
+                  )}
+                  {o.status === "da_nhan" && (
+                    <ActionBtn onClick={() => onShip(o.id)} color="#7c3aed">📦 Xuất hàng</ActionBtn>
+                  )}
+                  {(o.status === "hoan_thanh" || o.status === "da_huy") && (
+                    <span className="u-text-sm u-text-muted">—</span>
+                  )}
+                </div>
               </Td>
             </tr>
           ))}
         </StyledTable>
       )}
-    </div>
+    </Panel>
   );
 }
 
 function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) {
   const exported = orders.filter(o => o.status === "hoan_thanh");
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(460px,1fr))", gap: 16 }}>
-      <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-        <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 6 }}>📥 Tồn kho</h4>
-        <p style={{ fontSize: 12, color: "#aaa", marginBottom: 14 }}>Lô sản phẩm đang lưu kho</p>
+    <div className="u-grid u-grid-2-col u-gap-6">
+      <Panel>
+        <div className="panel-title u-mb-2">📥 Tồn kho</div>
+        <p className="page-subtitle u-mb-4">Lô sản phẩm đang lưu kho</p>
         <StyledTable headers={["Mã lô", "Sản phẩm", "Trang trại", "Hạn dùng", "Trạng thái"]}>
           {batches.map(b => (
-            <tr key={b.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-              <Td><code style={{ fontSize: 11, color: "#888" }}>{b.id}</code></Td>
+            <tr key={b.id}>
+              <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
               <Td><b>{b.product}</b></Td><Td>{b.farmName}</Td><Td>{b.expiry}</Td>
               <Td><StatusBadge status={b.status} /></Td>
             </tr>
           ))}
         </StyledTable>
-      </div>
-      <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a" }}>
-        <h4 style={{ fontSize: 15, fontWeight: 700, color: "#163d2b", marginBottom: 6 }}>📤 Lịch sử xuất hàng</h4>
-        <p style={{ fontSize: 12, color: "#aaa", marginBottom: 14 }}>Hàng đã xuất cho Đại lý</p>
+      </Panel>
+      <Panel>
+        <div className="panel-title u-mb-2">📤 Lịch sử xuất hàng</div>
+        <p className="page-subtitle u-mb-4">Hàng đã xuất cho Đại lý</p>
         <StyledTable headers={["Mã đơn", "Mã lô", "Số lượng", "Đại lý", "Ngày"]}>
           {exported.length === 0
-            ? <tr><td colSpan={5} style={{ textAlign: "center", color: "#aaa", padding: "20px 0", fontSize: 13 }}>Chưa có lịch sử xuất hàng</td></tr>
+            ? <tr><td colSpan={5} className="empty-msg">Chưa có lịch sử xuất hàng</td></tr>
             : exported.map(o => (
-              <tr key={o.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                <Td><code style={{ fontSize: 11, color: "#888" }}>{o.id}</code></Td>
+              <tr key={o.id}>
+                <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
                 <Td>{o.batchId}</Td><Td>{o.quantity} kg</Td><Td>{o.agentName}</Td><Td>{o.date}</Td>
               </tr>
             ))}
         </StyledTable>
-      </div>
+      </Panel>
     </div>
   );
 }
@@ -293,19 +331,19 @@ function ReportsSection({ farms, batches, orders }: { farms: Farm[]; batches: Ba
     { icon: "🏡", label: "Số trang trại",       value: farms.length,           color: "#d97706" },
   ];
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+    <div className="u-grid u-grid-cards u-gap-4">
       {cards.map(c => (
-        <div key={c.label} style={{ background: "#fff", borderRadius: 14, padding: "28px 20px", boxShadow: "0 1px 8px #0000000a", textAlign: "center", borderLeft: `5px solid ${c.color}` }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>{c.icon}</div>
-          <div style={{ fontSize: 13, color: "#888", marginBottom: 6 }}>{c.label}</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.value}</div>
-        </div>
+        <Panel key={c.label} className="u-text-center" style={{ borderTop: `4px solid ${c.color}` }}>
+          <div className="u-text-2xl u-mb-3">{c.icon}</div>
+          <div className="u-text-sm u-text-muted u-mb-2 u-font-bold" style={{ textTransform: "uppercase" }}>{c.label}</div>
+          <div className="u-text-xl u-font-black" style={{ color: c.color }}>{c.value}</div>
+        </Panel>
       ))}
     </div>
   );
 }
 
-// ─── User Profile Modal ───────────────────────────────────────────────────────
+// ─── Modals ───────────────────────────────────────────────────────────────────
 function UserProfileModal({ user, onClose, onEdit }: { user: User; onClose: () => void; onEdit: () => void }) {
   const fields: [string, string][] = [
     ["Họ tên", user.fullName],
@@ -316,19 +354,29 @@ function UserProfileModal({ user, onClose, onEdit }: { user: User; onClose: () =
     ["Địa chỉ", user.address],
   ];
   return (
-    <Modal title="Thông tin cá nhân" onClose={onClose}>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
-        <div style={{ width: 64, height: 64, background: "linear-gradient(135deg,#4caf50,#1a472a)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>👤</div>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 18 }}>
-        {fields.map(([k, v]) => (
-          <div key={k} style={{ padding: "6px 0", borderBottom: "1px solid #f0f0f0" }}>
-            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4 }}>{k}</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#222", marginTop: 2 }}>{v}</div>
+    <Modal title="Thông tin tài khoản" onClose={onClose}>
+      <div className="u-flex u-flex-col u-gap-4">
+        <div className="u-flex u-items-center u-gap-5 u-p-6 u-rounded-lg u-border" style={{ background: "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%)" }}>
+          <div className="avatar" style={{ width: 64, height: 64, fontSize: 24 }}>
+            {user.fullName?.charAt(0).toUpperCase() || "N"}
           </div>
-        ))}
+          <div>
+            <div className="u-font-black u-text-lg u-text-dark">{user.fullName}</div>
+            <div className="u-text-sm u-text-primary u-font-bold" style={{ textTransform: "uppercase", letterSpacing: 1 }}>{user.farmName || "Nông dân"}</div>
+          </div>
+        </div>
+        <div className="u-px-2">
+          {fields.map(([k, v]) => (
+            <div key={k} className="u-flex u-justify-between u-py-6 u-border-b" style={{ padding: "14px 0" }}>
+              <span className="u-text-sm u-text-muted u-font-medium">{k}</span>
+              <span className="u-text-sm u-font-bold u-text-dark">{v || "—"}</span>
+            </div>
+          ))}
+        </div>
+        <div className="u-flex u-justify-end u-mt-3">
+          <PrimaryBtn onClick={onEdit}>Chỉnh sửa thông tin</PrimaryBtn>
+        </div>
       </div>
-      <button onClick={onEdit} style={{ width: "100%", padding: "10px", background: "linear-gradient(135deg,#4caf50,#1a472a)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>✏️ Sửa thông tin</button>
     </Modal>
   );
 }
@@ -359,39 +407,38 @@ function EditProfileModal({ user, onClose, onSaved }: { user: User; onClose: () 
 
   return (
     <Modal title="Sửa thông tin cá nhân" onClose={onClose}>
-      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>⚠ {err}</div>}
-      <FormField label="Họ tên *"><input style={inputStyle} value={hoTen} onChange={e => setHoTen(e.target.value)} /></FormField>
-      <FormField label="Số điện thoại"><input style={inputStyle} value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
-      <FormField label="Email"><input style={inputStyle} type="email" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
-      <FormField label="Địa chỉ"><input style={inputStyle} value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-        <Btn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu"}</Btn>
+      {err && <div className="error-msg">{err}</div>}
+      <FormField label="Họ tên *"><input className="input" value={hoTen} onChange={e => setHoTen(e.target.value)} /></FormField>
+      <FormField label="Số điện thoại"><input className="input" value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
+      <FormField label="Email"><input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
+      <FormField label="Địa chỉ"><input className="input" value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
+        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
+        <PrimaryBtn onClick={handleSave} disabled={loading}>{loading ? "Đang lưu..." : "Lưu thay đổi"}</PrimaryBtn>
       </div>
     </Modal>
   );
 }
 
-// ─── Form Modals ──────────────────────────────────────────────────────────────
 function FarmModal({ farm, onClose, onSave }: { farm: Farm | null; onClose: () => void; onSave: (d: Partial<Farm>) => void }) {
   const [name, setName] = useState(farm?.name || "");
   const [address, setAddress] = useState(farm?.address || "");
   const [cert, setCert] = useState(farm?.cert || "");
   return (
     <Modal title={farm ? "Chỉnh sửa trang trại" : "Thêm trang trại mới"} onClose={onClose}>
-      <FormField label="Tên trang trại *"><input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="VD: Trang trại Hòa Bình" /></FormField>
-      <FormField label="Địa chỉ *"><input style={inputStyle} value={address} onChange={e => setAddress(e.target.value)} placeholder="VD: Xã Bình Minh, Cao Phong" /></FormField>
+      <FormField label="Tên trang trại *"><input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="VD: Trang trại Hòa Bình" /></FormField>
+      <FormField label="Địa chỉ *"><input className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="VD: Xã Bình Minh, Cao Phong" /></FormField>
       <FormField label="Chứng nhận">
-        <select style={inputStyle} value={cert} onChange={e => setCert(e.target.value)}>
+        <select className="select" value={cert} onChange={e => setCert(e.target.value)}>
           <option value="">— Chọn chứng nhận —</option>
           <option value="VietGAP">VietGAP</option>
           <option value="GlobalGAP">GlobalGAP</option>
           <option value="Organic">Organic</option>
         </select>
       </FormField>
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-        <Btn onClick={() => { if (!name || !address) return alert("Vui lòng nhập đầy đủ"); onSave({ name, address, cert }); }}>Lưu</Btn>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
+        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
+        <PrimaryBtn onClick={() => { if (!name || !address) return alert("Vui lòng nhập đầy đủ"); onSave({ name, address, cert }); }}>Lưu</PrimaryBtn>
       </div>
     </Modal>
   );
@@ -425,31 +472,32 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
       {!isEdit ? (
         <>
           <FormField label="Trang trại *">
-            <select style={inputStyle} value={farmId} onChange={e => setFarmId(e.target.value)}>
+            <select className="select" value={farmId} onChange={e => setFarmId(e.target.value)}>
               {farms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </FormField>
           <FormField label="Sản phẩm *">
-            <select style={inputStyle} value={maSanPham} onChange={e => setMaSanPham(Number(e.target.value))}>
+            <select className="select" value={maSanPham} onChange={e => setMaSanPham(Number(e.target.value))}>
               {sanPhams.map(s => <option key={s.MaSanPham} value={s.MaSanPham}>{s.TenSanPham}</option>)}
             </select>
           </FormField>
           <FormField label="Sản lượng ban đầu *">
-            <input style={inputStyle} type="number" min="0.01" step="0.01" value={soLuong} onChange={e => setSoLuong(e.target.value)} placeholder="VD: 500" />
+            <input className="input" type="number" min="0.01" step="0.01" value={soLuong} onChange={e => setSoLuong(e.target.value)} placeholder="VD: 500" />
           </FormField>
-          <FormField label="Ngày thu hoạch"><input style={inputStyle} type="date" value={harvest} onChange={e => setHarvest(e.target.value)} /></FormField>
-          <FormField label="Hạn sử dụng *"><input style={inputStyle} type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
-          <FormField label="Số chứng nhận lô"><input style={inputStyle} value={soChungNhan} onChange={e => setSoChungNhan(e.target.value)} placeholder="VD: VG-2024-001" /></FormField>
+          <FormField label="Ngày thu hoạch"><input className="input" type="date" value={harvest} onChange={e => setHarvest(e.target.value)} /></FormField>
+          <FormField label="Hạn sử dụng *"><input className="input" type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
+          <FormField label="Số chứng nhận lô"><input className="input" value={soChungNhan} onChange={e => setSoChungNhan(e.target.value)} placeholder="VD: VG-2024-001" /></FormField>
         </>
       ) : (
         <>
-          <div style={{ padding: "10px 12px", background: "#f8faf8", borderRadius: 8, marginBottom: 14, fontSize: 13, color: "#555" }}>
-            <b>{batch.product}</b> — {batch.farmName}<br />
-            <span style={{ fontSize: 12, color: "#aaa" }}>Sản lượng ban đầu: {batch.soLuongBanDau} | Hiện tại: {batch.soLuongHienTai}</span>
+          <div className="u-bg-light u-border u-rounded-md u-mb-5 u-text-sm u-text-muted" style={{ padding: "12px 16px" }}>
+            <div className="u-font-black u-text-dark u-mb-1">{batch.product}</div>
+            Trang trại: {batch.farmName}<br />
+            Sản lượng ban đầu: {batch.soLuongBanDau} kg | Hiện tại: {batch.soLuongHienTai} kg
           </div>
-          <FormField label="Hạn sử dụng"><input style={inputStyle} type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
+          <FormField label="Hạn sử dụng"><input className="input" type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
           <FormField label="Trạng thái">
-            <select style={inputStyle} value={trangThai} onChange={e => setTrangThai(e.target.value)}>
+            <select className="select" value={trangThai} onChange={e => setTrangThai(e.target.value)}>
               <option value="tai_trang_trai">Tại trang trại</option>
               <option value="da_xuat">Đã xuất</option>
               <option value="het_hang">Hết hàng</option>
@@ -457,9 +505,9 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
           </FormField>
         </>
       )}
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Hủy</button>
-        <Btn onClick={() => {
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
+        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
+        <PrimaryBtn onClick={() => {
           if (!isEdit && (!farmId || !maSanPham || !soLuong || !expiry)) return alert("Vui lòng điền đủ thông tin bắt buộc");
           const sp = sanPhams.find(s => s.MaSanPham === maSanPham);
           if (!isEdit) {
@@ -467,7 +515,7 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
           } else {
             onSave({ expiry, status: trangThai });
           }
-        }}>Lưu</Btn>
+        }}>Lưu</PrimaryBtn>
       </div>
     </Modal>
   );
@@ -541,10 +589,8 @@ export default function NongDanApp() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.message);
       if (json.deleted) {
-        // Xóa hẳn khỏi danh sách
         setFarms(f => f.filter(x => x.id !== id));
       } else {
-        // Còn lô hàng → ẩn khỏi danh sách (đã ngừng hoạt động)
         setFarms(f => f.filter(x => x.id !== id));
         alert(json.message);
       }
@@ -697,65 +743,58 @@ export default function NongDanApp() {
     } catch (e: unknown) { alert(e instanceof Error ? e.message : "Xóa thất bại"); }
   }
 
-  const headerCtas: Partial<Record<Section, React.ReactNode>> = {
-    farms:     <Btn onClick={() => { setEditTarget(null); setModal("new-farm"); }}>+ Thêm trang trại</Btn>,
-    batches:   <Btn onClick={() => { setEditTarget(null); setModal("new-batch"); }}>+ Đăng ký lô mới</Btn>,
-    dashboard: <Btn onClick={() => { setEditTarget(null); setModal("new-batch"); }}>+ Đăng ký lô mới</Btn>,
-  };
-
   return (
-    <div style={{ fontFamily: "'Be Vietnam Pro','Segoe UI',Tahoma,Geneva,sans-serif", background: "#f4f6f4", minHeight: "100vh" }}>
+    <div className="nongdan-app">
       {/* Sidebar */}
-      <aside style={{ position: "fixed", left: 0, top: 0, width: 248, height: "100vh", background: "linear-gradient(180deg,#0f2f1a 0%,#0a1f11 100%)", color: "#fff", display: "flex", flexDirection: "column", zIndex: 1000, fontFamily: "inherit" }}>
-        <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 28 }}>🌾</span>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: 0.5 }}>NôngDân</div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", letterSpacing: 0.8, textTransform: "uppercase" }}>Quản lý trang trại</div>
-            </div>
-          </div>
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <div className="logo">AgriChain</div>
+          <div className="logo-sub">Nông Dân</div>
         </div>
-        <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }} onClick={() => setShowProfile(true)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#4caf50,#1a472a)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>👤</div>
-            <div style={{ overflow: "hidden" }}>
-              <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.fullName}</div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>{user.farmName}</div>
-            </div>
-          </div>
-        </div>
-        <nav style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
+        <nav className="nav-list">
           {NAV.map(n => (
-            <button key={n.id} onClick={() => setSection(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 18px", background: section === n.id ? "rgba(76,175,80,0.18)" : "none", border: "none", borderLeft: section === n.id ? "3px solid #4caf50" : "3px solid transparent", color: section === n.id ? "#4caf50" : "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: 13, fontWeight: section === n.id ? 700 : 500, textAlign: "left", transition: "all 0.18s" }}>
-              <span>{n.icon}</span><span>{n.label}</span>
+            <button key={n.id} onClick={() => setSection(n.id)} className={`nav-item ${section === n.id ? "active" : ""}`}>
+              <span className="nav-icon">{n.icon}</span>{n.label}
             </button>
           ))}
         </nav>
-        <div style={{ padding: "10px 8px 16px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 10px", background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
-            <span>🚪</span><span>Đăng xuất</span>
+        <div className="sidebar-footer">
+          <button className="profile-btn" onClick={() => setShowProfile(true)}>
+            <div className="avatar">
+              {user.fullName?.charAt(0).toUpperCase() || "N"}
+            </div>
+            <div className="u-text-left" style={{ overflow: "hidden" }}>
+              <div className="u-font-black u-text-md" style={{ color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.fullName}</div>
+              <div className="u-font-medium u-text-sm" style={{ color: "var(--primary-light)" }}>{user.farmName || "Nông dân"}</div>
+            </div>
+          </button>
+          <button className="logout-btn" onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
+            Đăng xuất
           </button>
         </div>
-      </aside>
+      </div>
 
-      {/* Main */}
-      <main style={{ marginLeft: 248, padding: "28px 28px 48px", minHeight: "100vh" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-          <div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0f2f1a", margin: 0 }}>{PAGE_TITLES[section]}</h2>
-            <p style={{ fontSize: 12, color: "#aaa", margin: "3px 0 0" }}>Xin chào, {user.fullName}</p>
-          </div>
-          {headerCtas[section]}
+      {/* Main content */}
+      <div className="main-content">
+        <div className="page-header">
+          <h2 className="page-title">
+            <span className="u-text-2xl">{NAV.find(n => n.id === section)?.icon}</span>
+            {PAGE_TITLES[section]}
+          </h2>
+          <p className="page-subtitle">Chào mừng trở lại, {user.fullName}</p>
         </div>
-        {section === "dashboard" && <Dashboard farms={farms} batches={batches} orders={orders} />}
-        {section === "farms"     && <FarmsSection farms={farms} onNew={() => setModal("new-farm")} onEdit={f => { setEditTarget(f); setModal("edit-farm"); }} onDelete={handleDeleteFarm} />}
-        {section === "batches"   && <BatchesSection batches={batches} onNew={() => setModal("new-batch")} onEdit={b => { setEditTarget(b); setModal("edit-batch"); }} onDelete={handleDeleteBatch} />}
-        {section === "orders"    && <OrdersSection orders={orders} onAccept={handleAcceptOrder} onShip={handleShipOrder} onCancel={handleCancelOrder} />}
-        {section === "kho"       && <KhoSection batches={batches} orders={orders} />}
-        {section === "reports"   && <ReportsSection farms={farms} batches={batches} orders={orders} />}
-      </main>
 
+        <div className="section-content u-fade-in">
+          {section === "dashboard" && <Dashboard farms={farms} batches={batches} orders={orders} />}
+          {section === "farms"     && <FarmsSection farms={farms} onNew={() => { setEditTarget(null); setModal("new-farm"); }} onEdit={f => { setEditTarget(f); setModal("edit-farm"); }} onDelete={handleDeleteFarm} />}
+          {section === "batches"   && <BatchesSection batches={batches} onNew={() => { setEditTarget(null); setModal("new-batch"); }} onEdit={b => { setEditTarget(b); setModal("edit-batch"); }} onDelete={handleDeleteBatch} />}
+          {section === "orders"    && <OrdersSection orders={orders} onAccept={handleAcceptOrder} onShip={handleShipOrder} onCancel={handleCancelOrder} />}
+          {section === "kho"       && <KhoSection batches={batches} orders={orders} />}
+          {section === "reports"   && <ReportsSection farms={farms} batches={batches} orders={orders} />}
+        </div>
+      </div>
+
+      {/* Modals */}
       {showProfile && <UserProfileModal user={user} onClose={() => setShowProfile(false)} onEdit={() => { setShowProfile(false); setShowEditProfile(true); }} />}
       {showEditProfile && <EditProfileModal user={user} onClose={() => setShowEditProfile(false)} onSaved={(u) => { setUserInfo(prev => ({ ...prev, ...u })); }} />}
       {(modal === "new-farm" || modal === "edit-farm") && <FarmModal farm={editTarget as Farm | null} onClose={() => { setModal(null); setEditTarget(null); }} onSave={handleSaveFarm} />}

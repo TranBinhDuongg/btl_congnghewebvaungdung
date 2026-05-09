@@ -68,10 +68,10 @@ async function apiFetch(path: string, opts?: RequestInit) {
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   chua_nhan: { label: "Chưa nhận", color: "#b45309", bg: "#fef3c7" },
-  da_nhan:   { label: "Đã nhận",   color: "#059669", bg: "#d1fae5" },
-  da_huy:    { label: "Đã hủy",    color: "#6b7280", bg: "#f3f4f6" },
-  dang_xu_ly:{ label: "Đang xử lý",color: "#1d4ed8", bg: "#dbeafe" },
-  hoan_thanh:{ label: "Hoàn thành",color: "#15803d", bg: "#dcfce7" },
+  da_nhan: { label: "Đã nhận", color: "#059669", bg: "#d1fae5" },
+  da_huy: { label: "Đã hủy", color: "#6b7280", bg: "#f3f4f6" },
+  dang_xu_ly: { label: "Đang xử lý", color: "#1d4ed8", bg: "#dbeafe" },
+  hoan_thanh: { label: "Hoàn thành", color: "#15803d", bg: "#dcfce7" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -212,8 +212,8 @@ function OrderModal({ maSieuThi, onClose, onSaved }: { maSieuThi: number; onClos
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    apiFetch("/api/dai-ly/get-all").then(d => { setDaiLys(Array.isArray(d) ? d : []); }).catch(() => {});
-    apiFetch("/api/lo-nong-san/get-all").then(d => { setLots(Array.isArray(d) ? d : []); }).catch(() => {});
+    apiFetch("/api/dai-ly/get-all").then(d => { setDaiLys(Array.isArray(d) ? d : []); }).catch(() => { });
+    apiFetch("/api/lo-nong-san/get-all").then(d => { setLots(Array.isArray(d) ? d : []); }).catch(() => { });
   }, []);
 
   function setRow(i: number, field: keyof ChiTietRow, val: string) {
@@ -303,7 +303,7 @@ function EditOrderModal({ donHang, onClose, onSaved }: { donHang: DonHang; onClo
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    apiFetch("/api/lo-nong-san/get-all").then(d => setLots(Array.isArray(d) ? d : [])).catch(() => {});
+    apiFetch("/api/lo-nong-san/get-all").then(d => setLots(Array.isArray(d) ? d : [])).catch(() => { });
     apiFetch(`/api/sieuthi/donhang/${donHang.MaDonHang}/chi-tiet`)
       .then(d => setChiTiet(Array.isArray(d) ? d : d.chiTiet || []))
       .catch(e => setErr(e.message));
@@ -537,17 +537,17 @@ function DashboardSection({ donHangs, khoHangs, onViewOrder }: {
           {donHangs.length === 0
             ? <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0", fontSize: 13 }}>Chưa có đơn hàng nào</p>
             : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng GT", "Ngày đặt", "TT"]}>
-                {donHangs.slice(0, 6).map(d => (
-                  <tr key={d.MaDonHang} onClick={() => onViewOrder(d)} style={{ cursor: "pointer" }}>
-                    <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-                    <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
-                    <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                    <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                    <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                    <Td><StatusBadge status={d.TrangThai} /></Td>
-                  </tr>
-                ))}
-              </StyledTable>
+              {donHangs.slice(0, 6).map(d => (
+                <tr key={d.MaDonHang} onClick={() => onViewOrder(d)} style={{ cursor: "pointer" }}>
+                  <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
+                  <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
+                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                  <Td><StatusBadge status={d.TrangThai} /></Td>
+                </tr>
+              ))}
+            </StyledTable>
           }
         </Panel>
         <Panel>
@@ -555,16 +555,16 @@ function DashboardSection({ donHangs, khoHangs, onViewOrder }: {
           {khoHangs.length === 0
             ? <p style={{ color: "#aaa", textAlign: "center", padding: "20px 0", fontSize: 13 }}>Chưa có kho nào</p>
             : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-                {khoHangs.map(k => (
-                  <div key={k.MaKho} style={{ padding: 20, background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)", borderRadius: 16, border: "1px solid #e2e8f0" }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: "#1e293b", marginBottom: 4 }}>{k.TenKho}</div>
-                    <div style={{ fontSize: 12, color: "#64748b" }}>{k.DiaChi || "—"}</div>
-                    <div style={{ fontSize: 15, color: "var(--primary)", marginTop: 12, fontWeight: 900 }}>
-                      {(k.TongTonKho || 0).toLocaleString()} <span style={{ fontSize: 11, fontWeight: 500 }}>kg</span>
-                    </div>
+              {khoHangs.map(k => (
+                <div key={k.MaKho} style={{ padding: 20, background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)", borderRadius: 16, border: "1px solid #e2e8f0" }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#1e293b", marginBottom: 4 }}>{k.TenKho}</div>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>{k.DiaChi || "—"}</div>
+                  <div style={{ fontSize: 15, color: "var(--primary)", marginTop: 12, fontWeight: 900 }}>
+                    {(k.TongTonKho || 0).toLocaleString()} <span style={{ fontSize: 11, fontWeight: 500 }}>kg</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
           }
         </Panel>
       </div>
@@ -618,29 +618,29 @@ function OrdersSection({
       {filtered.length === 0
         ? <p style={{ textAlign: "center", color: "#aaa", padding: "40px 0", fontSize: 14 }}>Không tìm thấy đơn hàng nào</p>
         : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ghi chú", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-            {filtered.map(d => (
-              <tr key={d.MaDonHang}>
-                <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-                <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
-                <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                <Td style={{ color: "#64748b", maxWidth: 160, fontSize: 12 }}>{d.GhiChu || "—"}</Td>
-                <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                <Td><StatusBadge status={d.TrangThai} /></Td>
-                <Td>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
-                    {d.TrangThai === "chua_nhan" && <>
-                      <ActionBtn onClick={() => onEdit(d)} color="#7c3aed">Sửa</ActionBtn>
-                      <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Nhận</ActionBtn>
-                      <ActionBtn onClick={() => onHuy(d.MaDonHang)} color="#d97706">Hủy</ActionBtn>
-                      <ActionBtn onClick={() => onXoa(d.MaDonHang)} color="#dc2626">Xóa</ActionBtn>
-                    </>}
-                  </div>
-                </Td>
-              </tr>
-            ))}
-          </StyledTable>
+          {filtered.map(d => (
+            <tr key={d.MaDonHang}>
+              <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
+              <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
+              <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+              <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+              <Td style={{ color: "#64748b", maxWidth: 160, fontSize: 12 }}>{d.GhiChu || "—"}</Td>
+              <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+              <Td><StatusBadge status={d.TrangThai} /></Td>
+              <Td>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
+                  {d.TrangThai === "chua_nhan" && <>
+                    <ActionBtn onClick={() => onEdit(d)} color="#7c3aed">Sửa</ActionBtn>
+                    <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Nhận</ActionBtn>
+                    <ActionBtn onClick={() => onHuy(d.MaDonHang)} color="#d97706">Hủy</ActionBtn>
+                    <ActionBtn onClick={() => onXoa(d.MaDonHang)} color="#dc2626">Xóa</ActionBtn>
+                  </>}
+                </div>
+              </Td>
+            </tr>
+          ))}
+        </StyledTable>
       }
     </Panel>
   );
@@ -673,23 +673,23 @@ function ReceiveSection({
         {choNhan.length === 0
           ? <p style={{ textAlign: "center", color: "#aaa", padding: "40px 0", fontSize: 14 }}>Không có đơn hàng nào chờ nhận</p>
           : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-              {choNhan.map(d => (
-                <tr key={d.MaDonHang}>
-                  <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-                  <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
-                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                  <Td><StatusBadge status={d.TrangThai} /></Td>
-                  <Td>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
-                      <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Xác nhận nhận hàng</ActionBtn>
-                    </div>
-                  </Td>
-                </tr>
-              ))}
-            </StyledTable>
+            {choNhan.map(d => (
+              <tr key={d.MaDonHang}>
+                <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
+                <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
+                <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+                <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+                <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                <Td><StatusBadge status={d.TrangThai} /></Td>
+                <Td>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
+                    <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Xác nhận nhận hàng</ActionBtn>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </StyledTable>
         }
       </Panel>
     </div>
@@ -724,33 +724,33 @@ function InventorySection({
         {khoHangs.length === 0
           ? <p style={{ textAlign: "center", color: "#aaa", padding: "40px 0", fontSize: 14 }}>Chưa có kho nào</p>
           : khoHangs.map(k => (
-              <div key={k.MaKho} style={{ marginBottom: 24, border: "1px solid #f1f5f9", borderRadius: 16, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-                  <div>
-                    <span style={{ fontWeight: 900, fontSize: 15, color: "#0f172a" }}>{k.TenKho}</span>
-                    {k.DiaChi && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 12, fontWeight: 500 }}>{k.DiaChi}</span>}
-                  </div>
-                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "var(--primary)", padding: "6px 14px" }}>Tồn kho: {(k.TongTonKho || 0).toLocaleString()} kg</span>
-                    <ActionBtn onClick={() => onEditKho(k)} color="#7c3aed">Sửa</ActionBtn>
-                    <ActionBtn onClick={() => onDeleteKho(k.MaKho)} color="#dc2626">Xóa</ActionBtn>
-                  </div>
+            <div key={k.MaKho} style={{ marginBottom: 24, border: "1px solid #f1f5f9", borderRadius: 16, overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
+                <div>
+                  <span style={{ fontWeight: 900, fontSize: 15, color: "#0f172a" }}>{k.TenKho}</span>
+                  {k.DiaChi && <span style={{ fontSize: 12, color: "#64748b", marginLeft: 12, fontWeight: 500 }}>{k.DiaChi}</span>}
                 </div>
-                {k.SanPham && k.SanPham.length > 0 ? (
-                  <div style={{ padding: "8px 20px 20px" }}>
-                    <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn vị"]}>
-                      {k.SanPham.map((sp, i) => (
-                        <tr key={i}>
-                          <Td><b>{sp.TenSanPham}</b></Td>
-                          <Td>{sp.SoLuong.toLocaleString()}</Td>
-                          <Td>{sp.DonVi || "kg"}</Td>
-                        </tr>
-                      ))}
-                    </StyledTable>
-                  </div>
-                ) : <p style={{ padding: 20, color: "#aaa", fontSize: 13, textAlign: "center" }}>Kho trống</p>}
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "var(--primary)", padding: "6px 14px" }}>Tồn kho: {(k.TongTonKho || 0).toLocaleString()} kg</span>
+                  <ActionBtn onClick={() => onEditKho(k)} color="#7c3aed">Sửa</ActionBtn>
+                  <ActionBtn onClick={() => onDeleteKho(k.MaKho)} color="#dc2626">Xóa</ActionBtn>
+                </div>
               </div>
-            ))
+              {k.SanPham && k.SanPham.length > 0 ? (
+                <div style={{ padding: "8px 20px 20px" }}>
+                  <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn vị"]}>
+                    {k.SanPham.map((sp, i) => (
+                      <tr key={i}>
+                        <Td><b>{sp.TenSanPham}</b></Td>
+                        <Td>{sp.SoLuong.toLocaleString()}</Td>
+                        <Td>{sp.DonVi || "kg"}</Td>
+                      </tr>
+                    ))}
+                  </StyledTable>
+                </div>
+              ) : <p style={{ padding: 20, color: "#aaa", fontSize: 13, textAlign: "center" }}>Kho trống</p>}
+            </div>
+          ))
         }
       </Panel>
     </div>
@@ -802,26 +802,26 @@ function ReportsSection({ donHangs }: { donHangs: DonHang[] }) {
         {daiLyStats.length === 0
           ? <p style={{ color: "#aaa", textAlign: "center", padding: "40px 0", fontSize: 14 }}>Chưa có dữ liệu</p>
           : <StyledTable headers={["Đại lý", "Tổng đơn", "Đã nhận", "Tỉ lệ nhận", "Tổng giá trị"]}>
-              {daiLyStats.map((dl, i) => {
-                const tl = dl.tongDon > 0 ? Math.round((dl.daNhan / dl.tongDon) * 100) : 0;
-                return (
-                  <tr key={i}>
-                    <Td><b>{dl.ten}</b></Td>
-                    <Td>{dl.tongDon}</Td>
-                    <Td>{dl.daNhan}</Td>
-                    <Td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                          <div style={{ width: `${tl}%`, height: "100%", background: "linear-gradient(90deg, #10b981 0%, #059669 100%)", borderRadius: 4 }} />
-                        </div>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: "#059669", minWidth: 40 }}>{tl}%</span>
+            {daiLyStats.map((dl, i) => {
+              const tl = dl.tongDon > 0 ? Math.round((dl.daNhan / dl.tongDon) * 100) : 0;
+              return (
+                <tr key={i}>
+                  <Td><b>{dl.ten}</b></Td>
+                  <Td>{dl.tongDon}</Td>
+                  <Td>{dl.daNhan}</Td>
+                  <Td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ width: `${tl}%`, height: "100%", background: "linear-gradient(90deg, #10b981 0%, #059669 100%)", borderRadius: 4 }} />
                       </div>
-                    </Td>
-                    <Td><b>{dl.tongGiaTri.toLocaleString()} đ</b></Td>
-                  </tr>
-                );
-              })}
-            </StyledTable>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: "#059669", minWidth: 40 }}>{tl}%</span>
+                    </div>
+                  </Td>
+                  <Td><b>{dl.tongGiaTri.toLocaleString()} đ</b></Td>
+                </tr>
+              );
+            })}
+          </StyledTable>
         }
       </Panel>
       <Panel>
@@ -829,17 +829,17 @@ function ReportsSection({ donHangs }: { donHangs: DonHang[] }) {
         {donHangs.length === 0
           ? <p style={{ color: "#aaa", textAlign: "center", padding: "24px 0", fontSize: 13 }}>Chưa có đơn hàng nào</p>
           : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ngày đặt", "Trạng thái"]}>
-              {donHangs.map(d => (
-                <tr key={d.MaDonHang}>
-                  <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
-                  <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
-                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                  <Td><StatusBadge status={d.TrangThai} /></Td>
-                </tr>
-              ))}
-            </StyledTable>
+            {donHangs.map(d => (
+              <tr key={d.MaDonHang}>
+                <Td><code style={{ fontSize: 12, color: "var(--primary)", fontWeight: 700 }}>#{d.MaDonHang}</code></Td>
+                <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
+                <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
+                <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
+                <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
+                <Td><StatusBadge status={d.TrangThai} /></Td>
+              </tr>
+            ))}
+          </StyledTable>
         }
       </Panel>
     </div>
@@ -943,10 +943,10 @@ export default function SieuThiApp() {
 
   const navItems: { id: Section; icon: string; label: string }[] = [
     { id: "dashboard", icon: "📊", label: "Tổng quan" },
-    { id: "orders",    icon: "📋", label: "Quản lý đơn hàng" },
-    { id: "receive",   icon: "📥", label: "Nhận hàng" },
+    { id: "orders", icon: "📋", label: "Quản lý đơn hàng" },
+    { id: "receive", icon: "📥", label: "Nhận hàng" },
     { id: "inventory", icon: "🏪", label: "Quản lý kho" },
-    { id: "reports",   icon: "📈", label: "Báo cáo thống kê" },
+    { id: "reports", icon: "📈", label: "Báo cáo thống kê" },
   ];
 
   return (
@@ -1048,7 +1048,7 @@ export default function SieuThiApp() {
       {editKho && <KhoModal kho={editKho} maSieuThi={maSieuThi} onClose={() => setEditKho(null)} onSaved={() => { loadData(); showToast("Cập nhật kho thành công!"); }} />}
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} onEdit={() => { setShowProfile(false); setShowEditProfile(true); }} />}
       {showEditProfile && <EditProfileModal onClose={() => setShowEditProfile(false)} onSaved={() => { showToast("Cập nhật thông tin thành công!"); }} />}
-      
+
       <style>{`
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       `}</style>
