@@ -45,7 +45,7 @@ function Navbar() {
   ];
   return (
     <nav style={{ position: "fixed", top: 0, width: "100%", zIndex: 1000, background: scrolled ? "rgba(7,26,14,0.97)" : "transparent", backdropFilter: scrolled ? "blur(14px)" : "none", borderBottom: scrolled ? "1px solid rgba(86,196,86,0.12)" : "none", transition: "all .35s" }}>
-      <style>{`@media(min-width:768px){.nav-item{display:list-item!important}}@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}html{scroll-behavior:smooth}`}</style>
+      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}html{scroll-behavior:smooth}`}</style>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
           <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#56c456,#2d7a2d)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌿</div>
@@ -53,8 +53,8 @@ function Navbar() {
         </a>
         <ul style={{ display: "flex", listStyle: "none", gap: 32, margin: 0, padding: 0 }}>
           {navLinks.map(n => (
-            <li key={n.href} style={{ display: "none" }} className="nav-item">
-              <a href={n.href} style={{ color: "rgba(255,255,255,0.8)", textDecoration: "none", fontSize: 14, fontWeight: 600, letterSpacing: 0.3, transition: "color .2s" }}
+            <li key={n.href}>
+              <a href={n.href} style={{ color: "rgba(255,255,255,0.8)", textDecoration: "none", fontSize: 14, fontWeight: 600, letterSpacing: 0.3, transition: "color .2s", whiteSpace: "nowrap" }}
                 onMouseEnter={e => (e.currentTarget.style.color = C.lime)}
                 onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}>{n.label}</a>
             </li>
@@ -73,33 +73,21 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section style={{ minHeight: "100vh", background: `linear-gradient(160deg,${C.deep} 0%,${C.forest} 45%,#162e1a 100%)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", padding: "100px 24px 60px" }}>
-      <div style={{ position: "absolute", top: "15%", left: "8%", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle,rgba(86,196,86,0.1) 0%,transparent 70%)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", bottom: "10%", right: "6%", width: 240, height: 240, borderRadius: "50%", background: "radial-gradient(circle,rgba(200,168,75,0.08) 0%,transparent 70%)", pointerEvents: "none" }} />
-      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(86,196,86,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(86,196,86,0.03) 1px,transparent 1px)", backgroundSize: "48px 48px", pointerEvents: "none" }} />
-      <div style={{ maxWidth: 820, textAlign: "center", position: "relative", zIndex: 1 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(86,196,86,0.1)", border: "1px solid rgba(86,196,86,0.25)", borderRadius: 100, padding: "6px 16px", marginBottom: 28, animation: "fadeUp .6s both" }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
-          <span style={{ fontSize: 12, color: C.lime, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Nền tảng quản lý nông sản số #1</span>
+    <section style={{ background: `linear-gradient(160deg,${C.deep} 0%,${C.forest} 55%,#1a1f4e 100%)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", padding: "120px 24px 80px" }}>
+      <div style={{ position: "absolute", top: "10%", left: "5%", width: 280, height: 280, borderRadius: "50%", background: "radial-gradient(circle,rgba(129,140,248,0.1) 0%,transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", bottom: "8%", right: "5%", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle,rgba(167,139,250,0.08) 0%,transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(129,140,248,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(129,140,248,0.03) 1px,transparent 1px)", backgroundSize: "48px 48px", pointerEvents: "none" }} />
+      <div style={{ maxWidth: 680, textAlign: "center", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(129,140,248,0.12)", border: "1px solid rgba(129,140,248,0.25)", borderRadius: 100, padding: "5px 14px", marginBottom: 22, animation: "fadeUp .6s both" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.lime, display: "inline-block" }} />
+          <span style={{ fontSize: 11, color: C.lime, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>Nền tảng quản lý nông sản số #1</span>
         </div>
-        <h1 style={{ fontFamily: SERIF, fontSize: "clamp(36px,6vw,64px)", fontWeight: 900, color: C.white, lineHeight: 1.15, marginBottom: 24, animation: "fadeUp .7s .1s both" }}>
-          Chuỗi cung ứng<br /><span style={{ color: C.lime }}>nông sản</span> minh bạch
+        <h1 style={{ fontFamily: SERIF, fontSize: "clamp(30px,5vw,52px)", fontWeight: 900, color: C.white, lineHeight: 1.2, marginBottom: 18, animation: "fadeUp .7s .1s both" }}>
+          Chuỗi cung ứng <span style={{ color: C.lime }}>nông sản</span> minh bạch
         </h1>
-        <p style={{ fontSize: "clamp(15px,2vw,19px)", color: "rgba(255,255,255,0.65)", lineHeight: 1.8, maxWidth: 600, margin: "0 auto 40px", animation: "fadeUp .7s .2s both" }}>
+        <p style={{ fontSize: 16, color: "rgba(255,255,255,0.6)", lineHeight: 1.75, maxWidth: 520, margin: "0 auto 32px", animation: "fadeUp .7s .2s both" }}>
           Từ trang trại đến siêu thị — AgriChain kết nối toàn bộ chuỗi cung ứng, đảm bảo an toàn thực phẩm và truy xuất nguồn gốc hoàn chỉnh.
         </p>
-        <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", animation: "fadeUp .7s .3s both" }}>
-          <a href="/register" style={{ padding: "14px 32px", background: "linear-gradient(135deg,#56c456,#2d7a2d)", color: C.white, textDecoration: "none", borderRadius: 10, fontWeight: 800, fontSize: 15, boxShadow: "0 8px 24px rgba(86,196,86,0.3)" }}>🚀 Đăng ký miễn phí</a>
-          <a href="/login" style={{ padding: "14px 32px", background: "rgba(255,255,255,0.1)", border: "1.5px solid rgba(255,255,255,0.35)", color: C.white, textDecoration: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, backdropFilter: "blur(4px)" }}>🔑 Đăng nhập</a>
-        </div>
-        <div style={{ display: "flex", gap: 40, justifyContent: "center", flexWrap: "wrap", marginTop: 60, paddingTop: 40, borderTop: "1px solid rgba(255,255,255,0.08)", animation: "fadeUp .7s .45s both" }}>
-          {[["1,200+", "Nông dân"], ["340+", "Đại lý"], ["85+", "Siêu thị"], ["99.8%", "Uptime"]].map(([v, l]) => (
-            <div key={l} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28, fontWeight: 900, color: C.lime, fontFamily: SERIF }}>{v}</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 4, letterSpacing: 0.5 }}>{l}</div>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   );
