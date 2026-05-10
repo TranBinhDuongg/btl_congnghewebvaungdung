@@ -20,6 +20,7 @@ export interface Batch {
   expiry: string;
   harvest?: string;
   soChungNhan?: string;
+  giaTien?: number;
   status: string;
 }
 export interface Order {
@@ -221,13 +222,14 @@ function BatchesSection({ batches, onNew, onEdit, onDelete }: { batches: Batch[]
       {batches.length === 0 ? (
         <p className="empty-msg">Chưa có lô sản phẩm nào</p>
       ) : (
-        <StyledTable headers={["Mã lô", "Trang trại", "Sản phẩm", "Số lượng", "Thu hoạch", "Hạn dùng", "Chứng nhận", "Trạng thái", "Hành động"]}>
+        <StyledTable headers={["Mã lô", "Trang trại", "Sản phẩm", "Số lượng", "Giá/kg", "Thu hoạch", "Hạn dùng", "Chứng nhận", "Trạng thái", "Hành động"]}>
           {batches.map(b => (
             <tr key={b.id}>
               <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
               <Td>{b.farmName}</Td>
               <Td><b>{b.product}</b></Td>
               <Td>{b.soLuongBanDau} kg</Td>
+              <Td>{b.giaTien ? <span style={{ color: "#059669", fontWeight: 700 }}>{b.giaTien.toLocaleString("vi-VN")} đ</span> : <span className="u-text-muted">—</span>}</Td>
               <Td>{b.harvest || "—"}</Td>
               <Td>{b.expiry}</Td>
               <Td><span className="u-text-sm u-text-muted">{b.soChungNhan || "—"}</span></Td>
@@ -246,7 +248,68 @@ function BatchesSection({ batches, onNew, onEdit, onDelete }: { batches: Batch[]
   );
 }
 
+function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+  const [details, setDetails] = useState<{ MaLo: number; TenSanPham: string; SoLuong: number; DonGia: number; ThanhTien: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [orderInfo, setOrderInfo] = useState<any>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/don-hang-dai-ly/get-by-id/${orderId}`).then(r => r.json()),
+      fetch(`/api/don-hang-dai-ly/${orderId}/chi-tiet`).then(r => r.json()),
+    ]).then(([o, d]) => {
+      // get-by-id trả về array (join với chi tiết), lấy row đầu
+      const first = Array.isArray(o) ? o[0] : o;
+      setOrderInfo(first);
+      setDetails(Array.isArray(d) ? d : []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [orderId]);
+
+  const tongGiaTri = details.reduce((s, d) => s + (d.ThanhTien || d.SoLuong * d.DonGia || 0), 0);
+
+  return (
+    <Modal title={`Chi tiết đơn hàng #${orderId}`} onClose={onClose}>
+      {loading ? (
+        <p className="empty-msg">Đang tải...</p>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18, padding: "12px 14px", background: "#f8fafc", borderRadius: 10 }}>
+            <div><span className="u-text-sm u-text-muted">Đại lý</span><div className="u-font-bold u-text-dark">{orderInfo?.TenDaiLy || "—"}</div></div>
+            <div><span className="u-text-sm u-text-muted">Ngày đặt</span><div className="u-font-bold u-text-dark">{orderInfo?.NgayDat?.slice(0,10) || "—"}</div></div>
+            <div><span className="u-text-sm u-text-muted">Trạng thái</span><div style={{ marginTop: 4 }}><StatusBadge status={orderInfo?.TrangThai || ""} /></div></div>
+            <div><span className="u-text-sm u-text-muted">Ghi chú</span><div className="u-font-bold u-text-dark">{orderInfo?.GhiChu || "—"}</div></div>
+          </div>
+          <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn giá", "Thành tiền"]}>
+            {details.length === 0
+              ? <tr><td colSpan={4} className="empty-msg">Không có chi tiết</td></tr>
+              : details.map((d, i) => (
+                <tr key={i}>
+                  <Td><b>{d.TenSanPham}</b></Td>
+                  <Td>{d.SoLuong?.toLocaleString("vi-VN")} kg</Td>
+                  <Td>{d.DonGia?.toLocaleString("vi-VN")} đ</Td>
+                  <Td><b style={{ color: "#4f46e5" }}>{(d.ThanhTien || d.SoLuong * d.DonGia)?.toLocaleString("vi-VN")} đ</b></Td>
+                </tr>
+              ))
+            }
+          </StyledTable>
+          {details.length > 0 && (
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "#eef2ff", borderRadius: 8, display: "flex", justifyContent: "space-between" }}>
+              <span className="u-font-bold u-text-dark">Tổng giá trị</span>
+              <span style={{ fontWeight: 800, fontSize: 16, color: "#4f46e5" }}>{tongGiaTri.toLocaleString("vi-VN")} đ</span>
+            </div>
+          )}
+          <div className="u-flex u-justify-end u-mt-4">
+            <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
 function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]; onAccept: (id: string) => void; onShip: (id: string) => void; onCancel: (id: string) => void }) {
+  const [detailId, setDetailId] = useState<string | null>(null);
   return (
     <Panel>
       <div className="panel-title">Đơn hàng từ Đại lý</div>
@@ -264,19 +327,15 @@ function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]
               <Td><StatusBadge status={o.status} /></Td>
               <Td>
                 <div className="u-flex u-gap-2">
+                  <ActionBtn onClick={() => setDetailId(o.id)} color="#6366f1">🔍 Xem</ActionBtn>
                   {o.status === "chua_nhan" && (
                     <>
                       <ActionBtn onClick={() => onAccept(o.id)} color="#059669">✓ Xác nhận</ActionBtn>
-                      <ActionBtn onClick={() => {
-                        if (window.confirm("Hủy đơn hàng này?")) onCancel(o.id);
-                      }} color="#dc2626">✕ Hủy</ActionBtn>
+                      <ActionBtn onClick={() => { if (window.confirm("Hủy đơn hàng này?")) onCancel(o.id); }} color="#dc2626">✕ Hủy</ActionBtn>
                     </>
                   )}
                   {o.status === "da_nhan" && (
                     <ActionBtn onClick={() => onShip(o.id)} color="#7c3aed">📦 Xuất hàng</ActionBtn>
-                  )}
-                  {(o.status === "hoan_thanh" || o.status === "da_huy") && (
-                    <span className="u-text-sm u-text-muted">—</span>
                   )}
                 </div>
               </Td>
@@ -284,23 +343,60 @@ function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]
           ))}
         </StyledTable>
       )}
+      {detailId && <OrderDetailModal orderId={detailId} onClose={() => setDetailId(null)} />}
     </Panel>
+  );
+}
+
+function BatchDetailModal({ batch, onClose }: { batch: Batch; onClose: () => void }) {
+  return (
+    <Modal title={`Chi tiết lô #${batch.id}`} onClose={onClose}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px", padding: "4px 0" }}>
+        {[
+          ["Sản phẩm", batch.product],
+          ["Trang trại", batch.farmName],
+          ["SL ban đầu", `${batch.soLuongBanDau} kg`],
+          ["SL hiện tại", `${batch.soLuongHienTai} kg`],
+          ["Thu hoạch", batch.harvest || "—"],
+          ["Hạn sử dụng", batch.expiry || "—"],
+          ["Chứng nhận", batch.soChungNhan || "—"],
+          ["Giá / kg", batch.giaTien ? `${batch.giaTien.toLocaleString("vi-VN")} đ` : "—"],
+        ].map(([k, v]) => (
+          <div key={k} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+            <div className="u-text-sm u-text-muted">{k}</div>
+            <div className="u-font-bold u-text-dark" style={{ marginTop: 3 }}>{v}</div>
+          </div>
+        ))}
+        <div style={{ gridColumn: "1/-1", padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+          <div className="u-text-sm u-text-muted">Trạng thái</div>
+          <div style={{ marginTop: 4 }}><StatusBadge status={batch.status} /></div>
+        </div>
+      </div>
+      <div className="u-flex u-justify-end u-mt-4">
+        <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+      </div>
+    </Modal>
   );
 }
 
 function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) {
   const exported = orders.filter(o => o.status === "hoan_thanh");
+  const [detailBatch, setDetailBatch] = useState<Batch | null>(null);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   return (
     <div className="u-grid u-grid-2-col u-gap-6">
       <Panel>
         <div className="panel-title u-mb-2">📥 Tồn kho</div>
         <p className="page-subtitle u-mb-4">Lô sản phẩm đang lưu kho</p>
-        <StyledTable headers={["Mã lô", "Sản phẩm", "Trang trại", "Hạn dùng", "Trạng thái"]}>
+        <StyledTable headers={["Mã lô", "Sản phẩm", "Trang trại", "Hạn dùng", "Trạng thái", ""]}>
           {batches.map(b => (
             <tr key={b.id}>
               <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
-              <Td><b>{b.product}</b></Td><Td>{b.farmName}</Td><Td>{b.expiry}</Td>
+              <Td><b>{b.product}</b></Td>
+              <Td>{b.farmName}</Td>
+              <Td>{b.expiry}</Td>
               <Td><StatusBadge status={b.status} /></Td>
+              <Td><ActionBtn onClick={() => setDetailBatch(b)} color="#6366f1">🔍 Xem</ActionBtn></Td>
             </tr>
           ))}
         </StyledTable>
@@ -308,17 +404,23 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
       <Panel>
         <div className="panel-title u-mb-2">📤 Lịch sử xuất hàng</div>
         <p className="page-subtitle u-mb-4">Hàng đã xuất cho Đại lý</p>
-        <StyledTable headers={["Mã đơn", "Mã lô", "Số lượng", "Đại lý", "Ngày"]}>
+        <StyledTable headers={["Mã đơn", "Mã lô", "Số lượng", "Đại lý", "Ngày", ""]}>
           {exported.length === 0
-            ? <tr><td colSpan={5} className="empty-msg">Chưa có lịch sử xuất hàng</td></tr>
+            ? <tr><td colSpan={6} className="empty-msg">Chưa có lịch sử xuất hàng</td></tr>
             : exported.map(o => (
               <tr key={o.id}>
                 <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
-                <Td>{o.batchId}</Td><Td>{o.quantity} kg</Td><Td>{o.agentName}</Td><Td>{o.date}</Td>
+                <Td>{o.batchId}</Td>
+                <Td>{o.quantity} kg</Td>
+                <Td>{o.agentName}</Td>
+                <Td>{o.date}</Td>
+                <Td><ActionBtn onClick={() => setDetailOrderId(o.id)} color="#6366f1">🔍 Xem</ActionBtn></Td>
               </tr>
             ))}
         </StyledTable>
       </Panel>
+      {detailBatch && <BatchDetailModal batch={detailBatch} onClose={() => setDetailBatch(null)} />}
+      {detailOrderId && <OrderDetailModal orderId={detailOrderId} onClose={() => setDetailOrderId(null)} />}
     </div>
   );
 }
@@ -449,14 +551,16 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
   const [farmId, setFarmId] = useState(batch?.farmId || farms[0]?.id || "");
   const [sanPhams, setSanPhams] = useState<{MaSanPham: number; TenSanPham: string}[]>([]);
   const [maSanPham, setMaSanPham] = useState(batch?.maSanPham || 0);
+  const [customProduct, setCustomProduct] = useState(batch?.product || "");
   const [soLuong, setSoLuong] = useState(String(batch?.soLuongBanDau || ""));
   const [expiry, setExpiry] = useState(batch?.expiry || "");
   const [harvest, setHarvest] = useState(batch?.harvest || "");
   const [soChungNhan, setSoChungNhan] = useState(batch?.soChungNhan || "");
+  const [giaTien, setGiaTien] = useState(String(batch?.giaTien || ""));
   const [trangThai, setTrangThai] = useState(batch?.status || "tai_trang_trai");
 
   useEffect(() => {
-    if (isEdit) return; // khi sửa không cần load sản phẩm
+    if (isEdit) return;
     fetch("/api/san-pham/get-all")
       .then(r => r.json())
       .then(data => {
@@ -476,17 +580,33 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
               {farms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </FormField>
+
           <FormField label="Sản phẩm *">
-            <select className="select" value={maSanPham} onChange={e => setMaSanPham(Number(e.target.value))}>
-              {sanPhams.map(s => <option key={s.MaSanPham} value={s.MaSanPham}>{s.TenSanPham}</option>)}
-            </select>
+            <input
+              className="input"
+              list="sanpham-list"
+              value={customProduct}
+              onChange={e => {
+                setCustomProduct(e.target.value);
+                const match = sanPhams.find(s => s.TenSanPham === e.target.value);
+                setMaSanPham(match ? match.MaSanPham : 0);
+              }}
+              placeholder="Chọn hoặc nhập tên sản phẩm..."
+            />
+            <datalist id="sanpham-list">
+              {sanPhams.map(s => <option key={s.MaSanPham} value={s.TenSanPham} />)}
+            </datalist>
           </FormField>
+
           <FormField label="Sản lượng ban đầu *">
             <input className="input" type="number" min="0.01" step="0.01" value={soLuong} onChange={e => setSoLuong(e.target.value)} placeholder="VD: 500" />
           </FormField>
           <FormField label="Ngày thu hoạch"><input className="input" type="date" value={harvest} onChange={e => setHarvest(e.target.value)} /></FormField>
           <FormField label="Hạn sử dụng *"><input className="input" type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
           <FormField label="Số chứng nhận lô"><input className="input" value={soChungNhan} onChange={e => setSoChungNhan(e.target.value)} placeholder="VD: VG-2024-001" /></FormField>
+          <FormField label="Giá tiền / kg (đ)">
+            <input className="input" type="number" min="0" step="1000" value={giaTien} onChange={e => setGiaTien(e.target.value)} placeholder="VD: 25000" />
+          </FormField>
         </>
       ) : (
         <>
@@ -496,6 +616,9 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
             Sản lượng ban đầu: {batch.soLuongBanDau} kg | Hiện tại: {batch.soLuongHienTai} kg
           </div>
           <FormField label="Hạn sử dụng"><input className="input" type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></FormField>
+          <FormField label="Giá tiền / kg (đ)">
+            <input className="input" type="number" min="0" step="1000" value={giaTien} onChange={e => setGiaTien(e.target.value)} placeholder="VD: 25000" />
+          </FormField>
           <FormField label="Trạng thái">
             <select className="select" value={trangThai} onChange={e => setTrangThai(e.target.value)}>
               <option value="tai_trang_trai">Tại trang trại</option>
@@ -508,12 +631,11 @@ function BatchModal({ batch, farms, onClose, onSave }: { batch: Batch | null; fa
       <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={() => {
-          if (!isEdit && (!farmId || !maSanPham || !soLuong || !expiry)) return alert("Vui lòng điền đủ thông tin bắt buộc");
-          const sp = sanPhams.find(s => s.MaSanPham === maSanPham);
           if (!isEdit) {
-            onSave({ farmId, farmName: farms.find(f => f.id === farmId)?.name || "", maSanPham, product: sp?.TenSanPham || "", soLuongBanDau: Number(soLuong), soLuongHienTai: Number(soLuong), expiry, harvest, soChungNhan });
+            if (!farmId || !customProduct.trim() || !soLuong || !expiry) return alert("Vui lòng điền đủ thông tin bắt buộc");
+            onSave({ farmId, farmName: farms.find(f => f.id === farmId)?.name || "", maSanPham, product: customProduct.trim(), soLuongBanDau: Number(soLuong), soLuongHienTai: Number(soLuong), expiry, harvest, soChungNhan, giaTien: giaTien !== "" ? Number(giaTien) : undefined });
           } else {
-            onSave({ expiry, status: trangThai });
+            onSave({ expiry, status: trangThai, giaTien: giaTien !== "" ? Number(giaTien) : undefined });
           }
         }}>Lưu</PrimaryBtn>
       </div>
@@ -673,7 +795,7 @@ export default function NongDanApp() {
     if (!maNongDan) return;
     fetch(`/api/lo-nong-san/get-by-nong-dan/${maNongDan}`)
       .then(r => r.json())
-      .then((data: Array<{MaLo: number; MaTrangTrai: number; TenTrangTrai: string; MaSanPham: number; TenSanPham: string; SoLuongBanDau: number; SoLuongHienTai: number; NgayThuHoach: string; HanSuDung: string; SoChungNhanLo: string; TrangThai: string}>) => {
+      .then((data: Array<{MaLo: number; MaTrangTrai: number; TenTrangTrai: string; MaSanPham: number; TenSanPham: string; SoLuongBanDau: number; SoLuongHienTai: number; NgayThuHoach: string; HanSuDung: string; SoChungNhanLo: string; TrangThai: string; GiaTien?: number}>) => {
         setBatches(data.map(lo => ({
           id: String(lo.MaLo),
           farmId: String(lo.MaTrangTrai),
@@ -685,6 +807,7 @@ export default function NongDanApp() {
           harvest: lo.NgayThuHoach?.slice(0, 10) || "",
           expiry: lo.HanSuDung?.slice(0, 10) || "",
           soChungNhan: lo.SoChungNhanLo || "",
+          giaTien: lo.GiaTien ?? undefined,
           status: lo.TrangThai || "tai_trang_trai",
         })));
       })
@@ -697,7 +820,7 @@ export default function NongDanApp() {
         await fetch(`/api/lo-nong-san/update/${(editTarget as Batch).id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ HanSuDung: data.expiry, TrangThai: data.status }),
+          body: JSON.stringify({ HanSuDung: data.expiry, TrangThai: data.status, GiaTien: data.giaTien !== undefined ? data.giaTien : null }),
         });
         setBatches(bs => bs.map(b => b.id === (editTarget as Batch).id ? { ...b, ...data } : b));
       } else {
@@ -711,6 +834,7 @@ export default function NongDanApp() {
             NgayThuHoach: data.harvest || null,
             HanSuDung: data.expiry,
             SoChungNhanLo: data.soChungNhan || null,
+            GiaTien: data.giaTien != null ? data.giaTien : null,
           }),
         });
         const json = await res.json();
@@ -726,6 +850,7 @@ export default function NongDanApp() {
           harvest: data.harvest || "",
           expiry: data.expiry || "",
           soChungNhan: data.soChungNhan || "",
+          giaTien: data.giaTien,
           status: "tai_trang_trai",
         }]);
       }

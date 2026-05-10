@@ -199,24 +199,97 @@ function Dashboard({ receipts, quality, inventory, warehouses, onNewReceipt }: {
   );
 }
 
+function DailyOrderDetailModal({ maPhieu, loai, onClose }: { maPhieu: string; loai: "import" | "retail"; onClose: () => void }) {
+  const [details, setDetails] = useState<{ MaLo: number; TenSanPham: string; SoLuong: number; DonGia: number; ThanhTien: number }[]>([]);
+  const [info, setInfo] = useState<{ tenDoiTac: string; ngayDat: string; trangThai: string; ghiChu: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const detailUrl = loai === "import"
+      ? `/api/don-hang-dai-ly/${maPhieu}/chi-tiet`
+      : `/api/sieuthi/donhang/${maPhieu}/chi-tiet`;
+    const infoUrl = loai === "import"
+      ? `/api/don-hang-dai-ly/get-by-id/${maPhieu}`
+      : `/api/sieuthi/donhang/${maPhieu}`;
+
+    Promise.all([
+      fetch(detailUrl).then(r => r.json()),
+      fetch(infoUrl).then(r => r.json()),
+    ]).then(([d, o]) => {
+      setDetails(Array.isArray(d) ? d : []);
+      // get-by-id trả về array (join chi tiết), lấy row đầu
+      const first = Array.isArray(o) ? o[0] : o;
+      setInfo({
+        tenDoiTac: loai === "import" ? (first?.TenNongDan || "—") : (first?.TenDaiLy || "—"),
+        ngayDat: first?.NgayDat?.slice(0, 10) || "—",
+        trangThai: first?.TrangThai || "",
+        ghiChu: first?.GhiChu || "—",
+      });
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [maPhieu, loai]);
+
+  const tong = details.reduce((s, d) => s + (d.ThanhTien || d.SoLuong * d.DonGia || 0), 0);
+  const labelDoiTac = loai === "import" ? "Nông dân" : "Đại lý";
+
+  return (
+    <Modal title={`Chi tiết đơn hàng #${maPhieu}`} onClose={onClose}>
+      {loading ? <p className="empty-msg">Đang tải...</p> : (
+        <>
+          {info && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16, padding: "12px 14px", background: "#f8fafc", borderRadius: 10 }}>
+              <div><span className="u-text-sm u-text-muted">{labelDoiTac}</span><div className="u-font-bold u-text-dark">{info.tenDoiTac}</div></div>
+              <div><span className="u-text-sm u-text-muted">Ngày đặt</span><div className="u-font-bold u-text-dark">{info.ngayDat}</div></div>
+              <div><span className="u-text-sm u-text-muted">Trạng thái</span><div style={{ marginTop: 3 }}><StatusBadge status={info.trangThai} /></div></div>
+              <div><span className="u-text-sm u-text-muted">Ghi chú</span><div className="u-font-bold u-text-dark">{info.ghiChu}</div></div>
+            </div>
+          )}
+          <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn giá", "Thành tiền"]}>
+            {details.length === 0
+              ? <tr><td colSpan={4} className="empty-msg">Không có chi tiết</td></tr>
+              : details.map((d, i) => (
+                <tr key={i}>
+                  <td className="u-font-bold">{d.TenSanPham}</td>
+                  <td>{d.SoLuong?.toLocaleString("vi-VN")} kg</td>
+                  <td>{d.DonGia?.toLocaleString("vi-VN")} đ</td>
+                  <td><b style={{ color: "var(--primary)" }}>{(d.ThanhTien || d.SoLuong * d.DonGia)?.toLocaleString("vi-VN")} đ</b></td>
+                </tr>
+              ))
+            }
+          </StyledTable>
+          {tong > 0 && (
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "#fef3c7", borderRadius: 8, display: "flex", justifyContent: "space-between" }}>
+              <span className="u-font-bold">Tổng giá trị</span>
+              <span style={{ fontWeight: 900, fontSize: 15, color: "var(--primary)" }}>{tong.toLocaleString("vi-VN")} đ</span>
+            </div>
+          )}
+          <div className="u-flex u-justify-end u-mt-4">
+            <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
 function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditReceipt, onDeleteReceipt, onAcceptRetail, onShipRetail }: {
   receipts: ImportReceipt[]; retail: RetailOrder[]; warehouses: Warehouse[];
   onNewReceipt: () => void; onEditReceipt: (r: ImportReceipt) => void; onDeleteReceipt: (id: string) => void;
   onAcceptRetail: (id: string) => void; onShipRetail: (id: string) => void;
 }) {
   const [tab, setTab] = useState<"import" | "retail">("import");
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailLoai, setDetailLoai] = useState<"import" | "retail">("import");
+
+  const openDetail = (id: string, loai: "import" | "retail") => { setDetailId(id); setDetailLoai(loai); };
 
   return (
     <div className="u-flex u-flex-col u-gap-4 u-fade-in">
       <div className="u-flex u-items-center u-justify-between">
         <div className="u-flex u-bg-light u-rounded-lg u-gap-1" style={{ padding: '4px' }}>
           {(["import", "retail"] as const).map(id => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
+            <button key={id} onClick={() => setTab(id)}
               className={`btn ${tab === id ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ boxShadow: tab !== id ? 'none' : undefined, background: tab !== id ? 'transparent' : undefined }}
-            >
+              style={{ boxShadow: tab !== id ? 'none' : undefined, background: tab !== id ? 'transparent' : undefined }}>
               {id === "import" ? "📥 Phiếu nhập" : "📤 Phiếu xuất"}
             </button>
           ))}
@@ -240,6 +313,7 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
                   <td>{r.ngayNhap || "—"}</td>
                   <td><StatusBadge status={r.status} /></td>
                   <td>
+                    <ActionBtn onClick={() => openDetail(r.maPhieu, "import")} variant="primary">Xem</ActionBtn>
                     <ActionBtn onClick={() => onEditReceipt(r)} variant="primary">Sửa</ActionBtn>
                     <ActionBtn onClick={() => onDeleteReceipt(r.maPhieu)} variant="danger">Xóa</ActionBtn>
                   </td>
@@ -266,8 +340,9 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
                   <td>{r.ngayTao || "—"}</td>
                   <td><StatusBadge status={r.status} /></td>
                   <td>
+                    <ActionBtn onClick={() => openDetail(r.maPhieu, "retail")} variant="primary">Xem</ActionBtn>
                     {(r.status === "pending" || r.status === "chua_nhan") && <ActionBtn onClick={() => onAcceptRetail(r.maPhieu)} variant="success">Xác nhận</ActionBtn>}
-                    {(r.status === "received" || r.status === "da_nhan")  && <ActionBtn onClick={() => onShipRetail(r.maPhieu)} variant="warning">Xuất hàng</ActionBtn>}
+                    {(r.status === "received" || r.status === "da_nhan") && <ActionBtn onClick={() => onShipRetail(r.maPhieu)} variant="warning">Xuất hàng</ActionBtn>}
                   </td>
                 </tr>
               ))}
@@ -275,6 +350,8 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
           )}
         </Panel>
       )}
+
+      {detailId && <DailyOrderDetailModal maPhieu={detailId} loai={detailLoai} onClose={() => setDetailId(null)} />}
     </div>
   );
 }
@@ -389,7 +466,7 @@ function ReceiptModal({ receipt, onClose, onSaved }: {
 
   const [nongDans, setNongDans] = useState<{ MaNongDan: number; HoTen: string }[]>([]);
   const [maNongDan, setMaNongDan] = useState("");
-  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number; GiaTien?: number }[]>([]);
   const [rows, setRows] = useState<ChiTietRow[]>([{ maLo: "", tenLo: "", soLuong: "", donGia: "" }]);
   const [ghiChu, setGhiChu] = useState(receipt?.ghiChu || receipt?.sanPham || "");
   const [loading, setLoading] = useState(false);
@@ -412,7 +489,8 @@ function ReceiptModal({ receipt, onClose, onSaved }: {
       .then(r => r.json())
       .then((data: any[]) => {
         setLots(data);
-        setRows([{ maLo: data[0] ? String(data[0].MaLo) : "", tenLo: data[0]?.TenSanPham || "", soLuong: "", donGia: "" }]);
+        const first = data[0];
+        setRows([{ maLo: first ? String(first.MaLo) : "", tenLo: first?.TenSanPham || "", soLuong: "", donGia: first?.GiaTien ? String(first.GiaTien) : "" }]);
       })
       .catch(console.error);
   }, [maNongDan, receipt]);
@@ -444,7 +522,7 @@ function ReceiptModal({ receipt, onClose, onSaved }: {
       if (idx !== i) return r;
       if (field === "maLo") {
         const lot = lots.find(l => String(l.MaLo) === val);
-        return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" };
+        return { ...r, maLo: val, tenLo: lot?.TenSanPham || "", donGia: lot?.GiaTien ? String(lot.GiaTien) : r.donGia };
       }
       return { ...r, [field]: val };
     }));
@@ -537,39 +615,54 @@ function ReceiptModal({ receipt, onClose, onSaved }: {
       <div className="u-mb-4">
         <div className="u-flex u-justify-between u-items-center u-mb-2">
           <label className="form-label u-mb-0">Chi tiết đơn hàng *</label>
-          <button onClick={() => setRows(rs => [...rs, { maLo: allLots[0] ? String(allLots[0].MaLo) : "", tenLo: allLots[0]?.TenSanPham || "", soLuong: "", donGia: "", isExisting: false }])}
+          <button onClick={() => setRows(rs => [...rs, { maLo: allLots[0] ? String(allLots[0].MaLo) : "", tenLo: allLots[0]?.TenSanPham || "", soLuong: "", donGia: allLots[0]?.GiaTien ? String(allLots[0].GiaTien) : "", isExisting: false }])}
             className="btn btn-secondary u-text-sm" style={{ padding: '4px 10px' }}>
             + Thêm lô
           </button>
         </div>
         
-        <div className="u-grid u-gap-2 u-mb-2" style={{ gridTemplateColumns: '2fr 1fr 1fr 32px' }}>
-          {["Lô nông sản", "Số lượng (kg)", "Đơn giá (đ)", ""].map(h => (
+        <div className="u-grid u-gap-2 u-mb-2" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 32px' }}>
+          {["Lô nông sản", "Số lượng (kg)", "Đơn giá (đ)", "Thành tiền", ""].map(h => (
             <div key={h} className="u-text-sm u-font-bold u-text-muted">{h}</div>
           ))}
         </div>
         
-        {rows.map((row, i) => (
-          <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: '2fr 1fr 1fr 32px' }}>
-            {row.isExisting ? (
-              <div className="input u-bg-light u-text-muted">
-                {row.tenLo || `Lô #${row.maLo}`}
+        {rows.map((row, i) => {
+          const thanhTien = (Number(row.soLuong) || 0) * (Number(row.donGia) || 0);
+          return (
+            <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 32px' }}>
+              {row.isExisting ? (
+                <div className="input u-bg-light u-text-muted">
+                  {row.tenLo || `Lô #${row.maLo}`}
+                </div>
+              ) : (
+                <select className="select" value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
+                  {allLots.length === 0
+                    ? <option value="">— Không có lô —</option>
+                    : allLots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuongHienTai} kg)</option>)
+                  }
+                </select>
+              )}
+              <input className="input" type="number" placeholder="Số lượng" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} />
+              <input className="input" type="number" placeholder="Đơn giá" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} />
+              <div style={{ padding: "9px 12px", background: "#f0f4ff", borderRadius: 8, fontSize: 13, fontWeight: 700, color: "#4f46e5", textAlign: "right", whiteSpace: "nowrap" }}>
+                {thanhTien > 0 ? thanhTien.toLocaleString("vi-VN") + " đ" : "—"}
               </div>
-            ) : (
-              <select className="select" value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
-                {allLots.length === 0
-                  ? <option value="">— Không có lô —</option>
-                  : allLots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuongHienTai} kg)</option>)
-                }
-              </select>
-            )}
-            <input className="input" type="number" placeholder="Số lượng" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} />
-            <input className="input" type="number" placeholder="Đơn giá" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} />
-            <button onClick={() => handleDeleteRow(row, i)} className="btn u-text-danger" style={{ background: 'none', padding: '8px' }}>✕</button>
-          </div>
-        ))}
+              <button onClick={() => handleDeleteRow(row, i)} className="btn u-text-danger" style={{ background: 'none', padding: '8px' }}>✕</button>
+            </div>
+          );
+        })}
         {rows.length === 0 && <p className="empty-msg" style={{ padding: '12px 0' }}>Chưa có lô nào</p>}
       </div>
+
+      {(() => {
+        const tong = rows.reduce((s, r) => s + (Number(r.soLuong)||0) * (Number(r.donGia)||0), 0);
+        return tong > 0 ? (
+          <div style={{ textAlign: "right", marginBottom: 12, fontSize: 13, fontWeight: 700, color: "#4f46e5" }}>
+            Tổng giá trị: {tong.toLocaleString("vi-VN")} đ
+          </div>
+        ) : null;
+      })()}
 
       <FormField label="Ghi chú">
         <input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú tuỳ chọn…" />

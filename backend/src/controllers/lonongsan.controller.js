@@ -46,9 +46,9 @@ const getByNongDan = async (req, res) => {
 };
 
 const create = async (req, res) => {
-  const { MaTrangTrai, MaSanPham, SoLuongBanDau, NgayThuHoach, HanSuDung, SoChungNhanLo, MaQR } = req.body;
+  const { MaTrangTrai, MaSanPham, SoLuongBanDau, NgayThuHoach, HanSuDung, SoChungNhanLo, MaQR, GiaTien } = req.body;
   if (!MaTrangTrai || MaTrangTrai <= 0) return res.status(400).json({ message: 'MaTrangTrai không hợp lệ' });
-  if (!MaSanPham || MaSanPham <= 0) return res.status(400).json({ message: 'MaSanPham không hợp lệ' });
+  if (MaSanPham === undefined || MaSanPham === null) return res.status(400).json({ message: 'MaSanPham không hợp lệ' });
   if (!SoLuongBanDau || SoLuongBanDau <= 0) return res.status(400).json({ message: 'SoLuongBanDau phải lớn hơn 0' });
   if (NgayThuHoach && isNaN(Date.parse(NgayThuHoach))) return res.status(400).json({ message: 'NgayThuHoach không hợp lệ' });
   if (HanSuDung && isNaN(Date.parse(HanSuDung))) return res.status(400).json({ message: 'HanSuDung không hợp lệ' });
@@ -62,6 +62,7 @@ const create = async (req, res) => {
       .input('HanSuDung', sql.Date, HanSuDung || null)
       .input('SoChungNhanLo', sql.NVarChar, SoChungNhanLo || null)
       .input('MaQR', sql.NVarChar, MaQR || null)
+      .input('GiaTien', sql.Decimal(18, 2), GiaTien != null ? parseFloat(GiaTien) : null)
       .execute('sp_CreateLoNongSan');
     res.status(201).json({ MaLo: result.recordset[0].MaLo, message: 'Tạo lô thành công' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -70,7 +71,7 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   const id = parseInt(req.params.id);
   if (!id || id <= 0) return res.status(400).json({ message: 'ID không hợp lệ' });
-  const { SoLuongHienTai, HanSuDung, TrangThai } = req.body;
+  const { SoLuongHienTai, HanSuDung, TrangThai, GiaTien } = req.body;
   if (SoLuongHienTai !== undefined && SoLuongHienTai < 0) return res.status(400).json({ message: 'SoLuongHienTai không được âm' });
   if (HanSuDung && isNaN(Date.parse(HanSuDung))) return res.status(400).json({ message: 'HanSuDung không hợp lệ' });
   try {
@@ -79,9 +80,10 @@ const update = async (req, res) => {
     if (!check.recordset[0]) return res.status(404).json({ message: 'Không tìm thấy lô nông sản' });
     await pool.request()
       .input('MaLo', sql.Int, id)
-      .input('SoLuongHienTai', sql.Decimal(18, 2), SoLuongHienTai ?? null)
+      .input('SoLuongHienTai', sql.Decimal(18, 2), SoLuongHienTai ?? check.recordset[0].SoLuongHienTai)
       .input('HanSuDung', sql.Date, HanSuDung || null)
       .input('TrangThai', sql.NVarChar, TrangThai || null)
+      .input('GiaTien', sql.Decimal(18, 2), GiaTien != null ? parseFloat(GiaTien) : null)
       .execute('sp_UpdateLoNongSan');
     res.json({ message: 'Cập nhật lô thành công' });
   } catch (err) { res.status(500).json({ message: err.message }); }

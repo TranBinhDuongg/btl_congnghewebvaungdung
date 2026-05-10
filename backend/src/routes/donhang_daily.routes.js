@@ -224,6 +224,8 @@ router.delete('/delete/:id', ctrl.remove);
  *       201:
  *         description: Thêm thành công
  */
+router.get('/get-by-id/:id', ctrl.getById);
+
 router.get('/:maDonHang/chi-tiet', ctrl.getChiTiet);
 router.post('/:maDonHang/chi-tiet', ctrl.addChiTiet);
 
@@ -279,23 +281,5 @@ router.post('/:maDonHang/chi-tiet', ctrl.addChiTiet);
  */
 router.put('/:maDonHang/chi-tiet/:maLo', ctrl.updateChiTiet);
 router.delete('/:maDonHang/chi-tiet/:maLo', ctrl.deleteChiTiet);
-
-/**
- * @swagger
- * /api/don-hang-dai-ly/get-by-id/{id}:
- *   get:
- *     summary: Lấy đơn hàng theo ID
- *     tags: [DonHangDaiLy]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Chi tiết đơn hàng
- */
-router.get('/get-by-id/:id', ctrl.getById);
 
 module.exports = router;

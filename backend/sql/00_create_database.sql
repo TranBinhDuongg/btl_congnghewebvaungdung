@@ -93,6 +93,7 @@ CREATE TABLE LoNongSan (
     HanSuDung      DATE,
     SoChungNhanLo  NVARCHAR(50),
     MaQR           NVARCHAR(255),
+    GiaTien        DECIMAL(18,2) NULL,
     TrangThai      NVARCHAR(30) DEFAULT N'tai_trang_trai',
     NgayTao        DATETIME2 DEFAULT SYSDATETIME(),
     FOREIGN KEY (MaTrangTrai) REFERENCES TrangTrai(MaTrangTrai),
