@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactNode, CSSProperties } from "react";
+﻿import React, { useState, useEffect, ReactNode, CSSProperties } from "react";
 import "./NongDanApp.css";
 import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
@@ -327,7 +327,7 @@ function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]
               <Td><StatusBadge status={o.status} /></Td>
               <Td>
                 <div className="u-flex u-gap-2">
-                  <ActionBtn onClick={() => setDetailId(o.id)} color="#6366f1">🔍 Xem</ActionBtn>
+                  <ActionBtn onClick={() => setDetailId(o.id)} color="#6366f1">Xem</ActionBtn>
                   {o.status === "chua_nhan" && (
                     <>
                       <ActionBtn onClick={() => onAccept(o.id)} color="#059669">✓ Xác nhận</ActionBtn>
@@ -396,7 +396,7 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
               <Td>{b.farmName}</Td>
               <Td>{b.expiry}</Td>
               <Td><StatusBadge status={b.status} /></Td>
-              <Td><ActionBtn onClick={() => setDetailBatch(b)} color="#6366f1">🔍 Xem</ActionBtn></Td>
+              <Td><ActionBtn onClick={() => setDetailBatch(b)} color="#6366f1">Xem</ActionBtn></Td>
             </tr>
           ))}
         </StyledTable>
@@ -414,7 +414,7 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
                 <Td>{o.quantity} kg</Td>
                 <Td>{o.agentName}</Td>
                 <Td>{o.date}</Td>
-                <Td><ActionBtn onClick={() => setDetailOrderId(o.id)} color="#6366f1">🔍 Xem</ActionBtn></Td>
+                <Td><ActionBtn onClick={() => setDetailOrderId(o.id)} color="#6366f1">Xem</ActionBtn></Td>
               </tr>
             ))}
         </StyledTable>

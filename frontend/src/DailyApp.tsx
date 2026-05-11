@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactNode } from "react";
+﻿import React, { useState, useEffect, useCallback, ReactNode } from "react";
 import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 import "./DailyApp.css";
 
@@ -40,8 +40,8 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   preparing:           { label: "Chuẩn bị",      color: "#1d4ed8", bg: "#dbeafe" },
   shipped:             { label: "Đã xuất",        color: "#7c3aed", bg: "#ede9fe" },
   received:            { label: "Đã nhận",        color: "#059669", bg: "#d1fae5" },
-  chua_nhan:           { label: "Chưa nhận",     color: "#b45309", bg: "#fef3c7" },
-  da_nhan:             { label: "Đã nhận",        color: "#059669", bg: "#d1fae5" },
+  chua_nhan:           { label: "Chờ xác nhận",  color: "#b45309", bg: "#fef3c7" },
+  da_nhan:             { label: "Đã xác nhận",   color: "#059669", bg: "#d1fae5" },
   dang_xu_ly:          { label: "Đang xử lý",    color: "#1d4ed8", bg: "#dbeafe" },
   hoan_thanh:          { label: "Hoàn thành",    color: "#15803d", bg: "#dcfce7" },
   da_huy:              { label: "Đã hủy",         color: "#6b7280", bg: "#f3f4f6" },
@@ -59,6 +59,14 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   "Không đạt":         { label: "✗ Không đạt",    color: "#dc2626", bg: "#fee2e2" },
   "Yêu cầu bổ sung":  { label: "⚠ Bổ sung",      color: "#b45309", bg: "#fef3c7" },
 };
+
+function Toast({ msg, type }: { msg: string; type: "success" | "error" }) {
+  return (
+    <div className="toast" style={{ background: type === "success" ? "#16a34a" : "#dc2626" }}>
+      {type === "success" ? "✅" : "❌"} {msg}
+    </div>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_MAP[status] ?? { label: status, color: "#555", bg: "#f3f4f6" };
@@ -101,12 +109,13 @@ function StyledTable({ headers, children }: { headers: string[]; children: React
   );
 }
 
-function ActionBtn({ children, onClick, variant = "primary" }: { children: ReactNode; onClick: () => void; variant?: "primary" | "danger" | "success" | "warning" }) {
+function ActionBtn({ children, onClick, variant = "primary" }: { children: ReactNode; onClick: () => void; variant?: "primary" | "danger" | "success" | "warning" | "info" }) {
   const bgMap = {
     primary: "var(--primary)",
     danger: "var(--danger)",
     success: "var(--success)",
-    warning: "var(--warning)"
+    warning: "var(--warning)",
+    info: "#6366f1"
   };
   return (
     <button className="btn btn-action u-mr-1" onClick={onClick} style={{ background: bgMap[variant] }}>
@@ -124,8 +133,8 @@ function Modal({ title, onClose, children, wide = false }: { title: string; onCl
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className={`modal-content ${wide ? 'wide' : ''}`} onClick={e => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>✕</button>
-        <h3 className="u-text-xl u-font-black u-text-dark u-mb-4">{title}</h3>
+        <button className="modal-close" onClick={onClose}>×</button>
+        <h3 className="panel-title u-text-xl u-mb-6">{title}</h3>
         {children}
       </div>
     </div>
@@ -313,7 +322,7 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
                   <td>{r.ngayNhap || "—"}</td>
                   <td><StatusBadge status={r.status} /></td>
                   <td>
-                    <ActionBtn onClick={() => openDetail(r.maPhieu, "import")} variant="primary">Xem</ActionBtn>
+                    <ActionBtn onClick={() => openDetail(r.maPhieu, "import")} variant="info">Xem</ActionBtn>
                     <ActionBtn onClick={() => onEditReceipt(r)} variant="primary">Sửa</ActionBtn>
                     <ActionBtn onClick={() => onDeleteReceipt(r.maPhieu)} variant="danger">Xóa</ActionBtn>
                   </td>
@@ -340,7 +349,7 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
                   <td>{r.ngayTao || "—"}</td>
                   <td><StatusBadge status={r.status} /></td>
                   <td>
-                    <ActionBtn onClick={() => openDetail(r.maPhieu, "retail")} variant="primary">Xem</ActionBtn>
+                    <ActionBtn onClick={() => openDetail(r.maPhieu, "retail")} variant="info">Xem</ActionBtn>
                     {(r.status === "pending" || r.status === "chua_nhan") && <ActionBtn onClick={() => onAcceptRetail(r.maPhieu)} variant="success">Xác nhận</ActionBtn>}
                     {(r.status === "received" || r.status === "da_nhan") && <ActionBtn onClick={() => onShipRetail(r.maPhieu)} variant="warning">Xuất hàng</ActionBtn>}
                   </td>
@@ -401,9 +410,36 @@ function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehou
   );
 }
 
+function QualityDetailModal({ q, onClose }: { q: QualityCheck; onClose: () => void }) {
+  return (
+    <Modal title={`🔍 Chi tiết kiểm định #${q.maKiemDinh}`} onClose={onClose}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16, padding: "12px 14px", background: "#f8fafc", borderRadius: 10 }}>
+        <div><span className="u-text-sm u-text-muted">Mã kiểm định</span><div className="u-font-bold u-text-dark">#{q.maKiemDinh}</div></div>
+        <div><span className="u-text-sm u-text-muted">Mã lô</span><div className="u-font-bold u-text-dark">{q.maLo}</div></div>
+        <div><span className="u-text-sm u-text-muted">Sản phẩm</span><div className="u-font-bold u-text-dark">{q.tenSanPham || "—"}</div></div>
+        <div><span className="u-text-sm u-text-muted">Ngày kiểm</span><div className="u-font-bold u-text-dark">{q.ngayKiem || "—"}</div></div>
+        <div><span className="u-text-sm u-text-muted">Người kiểm</span><div className="u-font-bold u-text-dark">{q.nguoiKiem}</div></div>
+        <div><span className="u-text-sm u-text-muted">Kết quả</span><div style={{ marginTop: 4 }}><StatusBadge status={q.ketQua} /></div></div>
+        <div><span className="u-text-sm u-text-muted">Trạng thái</span><div style={{ marginTop: 4 }}><StatusBadge status={q.trangThai || "cho_duyet"} /></div></div>
+        <div><span className="u-text-sm u-text-muted">Ghi chú</span><div className="u-font-bold u-text-dark">{q.ghiChu || "—"}</div></div>
+      </div>
+      {q.bienBan && (
+        <div style={{ padding: "10px 14px", background: "#f0f4ff", borderRadius: 8, marginBottom: 12 }}>
+          <div className="u-text-sm u-text-muted" style={{ marginBottom: 4 }}>Biên bản</div>
+          <div style={{ fontSize: 13, color: "#333" }}>{q.bienBan}</div>
+        </div>
+      )}
+      <div className="u-flex u-justify-end u-mt-4">
+        <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+      </div>
+    </Modal>
+  );
+}
+
 function QualitySection({ quality, onNew, onEdit, onDelete }: {
   quality: QualityCheck[]; onNew: () => void; onEdit: (q: QualityCheck) => void; onDelete: (id: string) => void;
 }) {
+  const [detail, setDetail] = useState<QualityCheck | null>(null);
   return (
     <Panel className="u-fade-in">
       <div className="u-flex u-justify-between u-items-center u-mb-4">
@@ -424,6 +460,7 @@ function QualitySection({ quality, onNew, onEdit, onDelete }: {
               <td><StatusBadge status={q.trangThai || "cho_duyet"} /></td>
               <td className="u-text-muted">{q.ghiChu || "—"}</td>
               <td>
+                <ActionBtn onClick={() => setDetail(q)} variant="info">Xem</ActionBtn>
                 <ActionBtn onClick={() => onEdit(q)} variant="primary">Sửa</ActionBtn>
                 <ActionBtn onClick={() => onDelete(q.maKiemDinh)} variant="danger">Xóa</ActionBtn>
               </td>
@@ -431,6 +468,7 @@ function QualitySection({ quality, onNew, onEdit, onDelete }: {
           ))}
         </StyledTable>
       )}
+      {detail && <QualityDetailModal q={detail} onClose={() => setDetail(null)} />}
     </Panel>
   );
 }
@@ -598,7 +636,7 @@ function ReceiptModal({ receipt, onClose, onSaved }: {
 
   return (
     <Modal title={receipt ? `Sửa đơn #${receipt.maPhieu}` : "Tạo đơn nhập hàng"} onClose={onClose} wide={true}>
-      {err && <div className="error-msg">⚠ {err}</div>}
+      {err && <div className="error-msg">{err}</div>}
 
       {receipt ? (
         <div className="u-bg-light u-p-3 u-rounded-md u-mb-4 u-text-sm u-text-dark u-border">
@@ -668,7 +706,7 @@ function ReceiptModal({ receipt, onClose, onSaved }: {
         <input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú tuỳ chọn…" />
       </FormField>
       
-      <div className="u-flex u-justify-end u-gap-2 u-mt-4">
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu đơn"}</PrimaryBtn>
       </div>
@@ -730,7 +768,7 @@ function WarehouseModal({ warehouse, onClose, onSaved }: {
           </select>
         </FormField>
       )}
-      <div className="u-flex u-justify-end u-gap-2 u-mt-4">
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu kho"}</PrimaryBtn>
       </div>
@@ -822,7 +860,7 @@ function QualityModal({ check, inventory, onClose, onSaved }: {
       <FormField label="Ghi chú">
         <input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuỳ chọn…" />
       </FormField>
-      <div className="u-flex u-justify-end u-gap-2 u-mt-4">
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu"}</PrimaryBtn>
       </div>
@@ -886,7 +924,7 @@ function EditProfileModal({ user, onClose, onSaved }: { user: AgencyUser; onClos
       <FormField label="Số điện thoại"><input className="input" value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
       <FormField label="Email"><input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
       <FormField label="Địa chỉ"><input className="input" value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
-      <div className="u-flex u-justify-end u-gap-2 u-mt-4">
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
         <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu…" : "Lưu"}</PrimaryBtn>
       </div>
