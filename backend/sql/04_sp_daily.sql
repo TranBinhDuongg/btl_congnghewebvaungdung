@@ -141,6 +141,15 @@ GO
 CREATE OR ALTER PROCEDURE sp_XacNhanDonHangDaiLy
     @MaDonHang INT
 AS BEGIN
+    SET NOCOUNT ON;
+    -- Kiểm tra từng lô trong đơn có đủ tồn kho không
+    IF EXISTS (
+        SELECT 1 FROM ChiTietDonHang ct
+        JOIN LoNongSan lo ON ct.MaLo = lo.MaLo
+        WHERE ct.MaDonHang = @MaDonHang AND ct.SoLuong > lo.SoLuongHienTai
+    )
+        RAISERROR(N'Tồn kho không đủ cho một hoặc nhiều sản phẩm trong đơn', 16, 1)
+
     UPDATE DonHang SET TrangThai = N'da_nhan' WHERE MaDonHang = @MaDonHang
 END
 GO
@@ -148,7 +157,27 @@ GO
 CREATE OR ALTER PROCEDURE sp_XuatDonHangDaiLy
     @MaDonHang INT
 AS BEGIN
-    UPDATE DonHang SET TrangThai = N'hoan_thanh', NgayGiao = SYSDATETIME() WHERE MaDonHang = @MaDonHang
+    SET NOCOUNT ON;
+    BEGIN TRANSACTION
+    BEGIN TRY
+        -- Trừ SoLuongHienTai trong LoNongSan cho từng lô trong đơn
+        UPDATE lo
+        SET lo.SoLuongHienTai = lo.SoLuongHienTai - ct.SoLuong
+        FROM LoNongSan lo
+        JOIN ChiTietDonHang ct ON lo.MaLo = ct.MaLo
+        WHERE ct.MaDonHang = @MaDonHang
+
+        UPDATE DonHang
+        SET TrangThai = N'hoan_thanh', NgayGiao = SYSDATETIME()
+        WHERE MaDonHang = @MaDonHang
+
+        COMMIT
+    END TRY
+    BEGIN CATCH
+        ROLLBACK
+        DECLARE @Err NVARCHAR(4000) = N'Lỗi xuất hàng: ' + ERROR_MESSAGE()
+        RAISERROR(@Err, 16, 1)
+    END CATCH
 END
 GO
 
@@ -186,6 +215,15 @@ GO
 CREATE OR ALTER PROCEDURE sp_AddChiTietDonHangDaiLy
     @MaDonHang INT, @MaLo INT, @SoLuong DECIMAL(18,2), @DonGia DECIMAL(18,2)
 AS BEGIN
+    SET NOCOUNT ON;
+    -- Kiểm tra tồn kho nông dân
+    DECLARE @TonHienTai DECIMAL(18,2)
+    SELECT @TonHienTai = SoLuongHienTai FROM LoNongSan WHERE MaLo = @MaLo
+    IF @TonHienTai IS NULL
+        RAISERROR(N'Lô hàng không tồn tại', 16, 1)
+    IF @SoLuong > @TonHienTai
+        RAISERROR(N'Số lượng đặt vượt quá tồn kho của nông dân', 16, 1)
+
     INSERT INTO ChiTietDonHang (MaDonHang, MaLo, SoLuong, DonGia, ThanhTien)
     VALUES (@MaDonHang, @MaLo, @SoLuong, @DonGia, @SoLuong * @DonGia)
 
