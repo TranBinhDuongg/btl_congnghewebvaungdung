@@ -1,390 +1,156 @@
-import React, { useState, useEffect, CSSProperties, ReactNode } from "react";
-import "./SieuThiApp.css";
+import { useState, useEffect, useCallback, ReactNode, CSSProperties } from "react";
 import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-interface DonHang {
-  MaDonHang: number;
-  MaSieuThi: number;
-  MaDaiLy: number;
-  TenDaiLy?: string;
-  TongSoLuong?: number;
-  TongGiaTri?: number;
-  GhiChu?: string;
-  NgayDat?: string;
-  TrangThai: string;
-}
-
-interface ChiTietDonHang {
-  MaChiTiet: number;
-  MaDonHang: number;
-  MaLoNongSan?: number;
-  TenSanPham?: string;
-  DonVi?: string;
-  SoLuong: number;
-  DonGia: number;
-  ThanhTien?: number;
-}
-
-interface KhoHang {
-  MaKho: number;
-  TenKho: string;
-  DiaChi?: string;
-  TrangThai?: string;
-  TongTonKho?: number;
-  SoLoaiSanPham?: number;
-  SanPham?: SanPhamKho[];
-}
-
-interface SanPhamKho {
-  TenSanPham: string;
-  SoLuong: number;
-  DonVi?: string;
-}
-
-interface DaiLy {
-  MaDaiLy: number;
-  TenDaiLy: string;
-}
-
-interface LoNongSan {
-  MaLo: number;
-  TenSanPham: string;
-  DonVi?: string;
-  SoLuongHienTai?: number;
-}
-
-const API = "";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const API: string = (window as any)._env_?.REACT_APP_API_URL || "";
 
 async function apiFetch(path: string, opts?: RequestInit) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
-    ...opts,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Lỗi hệ thống");
+  const res = await fetch(`${API}${path}`, { headers: { "Content-Type": "application/json" }, ...opts });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Loi server");
   return data;
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  chua_nhan: { label: "Chưa nhận", color: "#b45309", bg: "#fef3c7" },
-  da_nhan:   { label: "Đã nhận",   color: "#059669", bg: "#d1fae5" },
-  da_huy:    { label: "Đã hủy",    color: "#6b7280", bg: "#f3f4f6" },
-  dang_xu_ly:{ label: "Đang xử lý",color: "#1d4ed8", bg: "#dbeafe" },
-  hoan_thanh:{ label: "Hoàn thành",color: "#15803d", bg: "#dcfce7" },
+// Types
+interface ApiDonHang {
+  MaDonHang: number; LoaiDon: string; TrangThai: string; GhiChu?: string;
+  NgayDat: string; TongSoLuong?: number; TongGiaTri?: number;
+  MaSieuThi?: number; TenSieuThi?: string; MaDaiLy?: number; TenDaiLy?: string;
+}
+interface ApiKho {
+  MaKho: number; TenKho: string; DiaChi?: string; TrangThai: string;
+  MaLo?: number; TenSanPham?: string; DonViTinh?: string; SoLuong?: number; CapNhatCuoi?: string;
+}
+interface ChiTietRow { maLo: string; tenLo: string; soLuong: string; donGia: string; }
+interface ChiTietRowEdit extends ChiTietRow { isExisting?: boolean; }
+interface ChiTietDonHang { MaLo: number; TenSanPham: string; DonViTinh?: string; SoLuong: number; DonGia: number; ThanhTien: number; }
+
+// Colors
+const C = {
+  primary: "#2563eb", dark: "#0f1e3d", darker: "#080f1f",
+  accent: "#3b82f6", light: "#eff6ff", mist: "#f8faff", white: "#ffffff",
 };
 
+// Status
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  chua_nhan:       { label: "Chua nhan",   color: "#b45309", bg: "#fef3c7" },
+  da_nhan:         { label: "Da nhan",     color: "#059669", bg: "#d1fae5" },
+  dang_xu_ly:      { label: "Dang xu ly", color: "#7c3aed", bg: "#ede9fe" },
+  hoan_thanh:      { label: "Hoan thanh", color: "#059669", bg: "#d1fae5" },
+  da_huy:          { label: "Da huy",     color: "#dc2626", bg: "#fee2e2" },
+  hoat_dong:       { label: "Hoat dong",  color: "#059669", bg: "#d1fae5" },
+  ngung_hoat_dong: { label: "Ngung HD",   color: "#dc2626", bg: "#fee2e2" },
+};
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_MAP[status] ?? { label: status, color: "#555", bg: "#f3f4f6" };
-  return (
-    <span className="badge" style={{ color: s.color, background: s.bg }}>
-      {s.label}
-    </span>
-  );
+  return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, color: s.color, background: s.bg }}>{s.label}</span>;
 }
 
-function Panel({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
-  return <div className={`panel ${className}`} style={style}>{children}</div>;
+// Shared UI
+function Panel({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+  return <div style={{ background: C.white, borderRadius: 14, padding: 20, boxShadow: "0 1px 8px #0000000a", ...style }}>{children}</div>;
 }
-
-function StatCard({ icon, label, value, accent }: { icon: string; label: string; value: string | number; accent: string }) {
-  return (
-    <div className="stat-card" style={{ "--accent": accent } as any}>
-      <div className="stat-icon">{icon}</div>
-      <div>
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
+function SectionTitle({ children }: { children: ReactNode }) {
+  return <h4 style={{ fontSize: 14, fontWeight: 700, color: C.dark, marginBottom: 14 }}>{children}</h4>;
 }
-
 function StyledTable({ headers, children }: { headers: string[]; children: ReactNode }) {
   return (
-    <div className="table-container">
-      <table>
-        <thead>
-          <tr>
-            {headers.map(h => <th key={h}>{h}</th>)}
-          </tr>
-        </thead>
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead><tr>{headers.map(h => (
+          <th key={h} style={{ textAlign: "left", padding: "8px 12px", background: "#f0f4ff", color: C.dark, fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, whiteSpace: "nowrap" }}>{h}</th>
+        ))}</tr></thead>
         <tbody>{children}</tbody>
       </table>
     </div>
   );
 }
-
-function Td({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
-  return <td className={className} style={style}>{children}</td>;
+function Td({ children, style }: { children?: ReactNode; style?: CSSProperties }) {
+  return <td style={{ padding: "10px 12px", verticalAlign: "middle", borderBottom: "1px solid #f0f4ff", ...style }}>{children}</td>;
 }
-
-function ActionBtn({ children, onClick, color = "var(--primary)", disabled }: { children: ReactNode; onClick: () => void; color?: string; disabled?: boolean }) {
-  return (
-    <button className="btn btn-action" onClick={onClick} disabled={disabled} style={{ background: disabled ? "#ccc" : color }}>
-      {children}
-    </button>
-  );
+function ActionBtn({ children, onClick, color = C.primary, disabled }: { children: ReactNode; onClick: () => void; color?: string; disabled?: boolean }) {
+  return <button onClick={onClick} disabled={disabled} style={{ marginRight: 5, padding: "4px 10px", background: disabled ? "#ccc" : color, color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer" }}>{children}</button>;
 }
-
-function PrimaryBtn({ children, onClick, className = "", style }: { children: ReactNode; onClick?: () => void; className?: string; style?: CSSProperties }) {
-  return <button className={`btn btn-primary ${className}`} onClick={onClick} style={style}>{children}</button>;
+function PrimaryBtn({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) {
+  return <button onClick={onClick} disabled={disabled} style={{ padding: "9px 18px", background: disabled ? "#ccc" : `linear-gradient(135deg,${C.primary},#1d4ed8)`, color: "#fff", border: "none", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", fontWeight: 700, fontSize: 13 }}>{children}</button>;
 }
-
 function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className={`modal-content ${wide ? 'wide' : ''}`} onClick={e => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>×</button>
-        <h3 className="panel-title u-text-xl u-mb-6">{title}</h3>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }} onClick={onClose}>
+      <div style={{ background: C.white, borderRadius: 16, padding: 28, width: wide ? 680 : 500, maxWidth: "94vw", maxHeight: "88vh", overflowY: "auto", position: "relative", boxShadow: "0 8px 40px #0003" }} onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#aaa" }}>x</button>
+        <h3 style={{ marginBottom: 18, color: C.dark, fontWeight: 800, fontSize: 17 }}>{title}</h3>
         {children}
       </div>
     </div>
   );
 }
-
 function FormField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="form-field">
-      <label className="form-label">{label}</label>
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#555", marginBottom: 5 }}>{label}</label>
       {children}
     </div>
   );
 }
+const inp: CSSProperties = { width: "100%", padding: "8px 10px", border: "1.5px solid #dbeafe", borderRadius: 8, fontSize: 13, outline: "none", fontFamily: "inherit", background: C.mist, boxSizing: "border-box" };
 
-// ─── OrderDetailModal ────────────────────────────────────────────────────────
-function OrderDetailModal({ donHang, onClose }: { donHang: DonHang; onClose: () => void }) {
-  const [chiTiet, setChiTiet] = useState<ChiTietDonHang[]>([]);
+// Nav
+type Section = "dashboard" | "orders" | "receive" | "inventory" | "reports";
+const NAV: { id: Section; label: string; icon: string }[] = [
+  { id: "dashboard", label: "Bang dieu khien",  icon: "🏠" },
+  { id: "orders",    label: "Quan ly don hang", icon: "📋" },
+  { id: "receive",   label: "Nhan hang",         icon: "📥" },
+  { id: "inventory", label: "Quan ly kho",       icon: "🏪" },
+  { id: "reports",   label: "Bao cao thong ke",  icon: "📊" },
+];
+const PAGE_TITLES: Record<Section, string> = {
+  dashboard: "Bang dieu khien", orders: "Quan ly don hang",
+  receive: "Nhan hang tu Dai ly", inventory: "Quan ly kho hang", reports: "Bao cao thong ke",
+};
+
+// Order Detail Modal - XEM CHI TIET DON HANG
+function OrderDetailModal({ order, onClose }: { order: ApiDonHang; onClose: () => void }) {
+  const [details, setDetails] = useState<ChiTietDonHang[]>([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-
   useEffect(() => {
-    apiFetch(`/api/sieuthi/donhang/${donHang.MaDonHang}/chi-tiet`)
-      .then(d => setChiTiet(Array.isArray(d) ? d : d.chiTiet || []))
-      .catch(e => setErr(e.message))
+    apiFetch(`/api/sieuthi/donhang/${order.MaDonHang}/chi-tiet`)
+      .then((d: ChiTietDonHang[]) => setDetails(Array.isArray(d) ? d : []))
+      .catch(console.error)
       .finally(() => setLoading(false));
-  }, [donHang.MaDonHang]);
-
-  const tong = chiTiet.reduce((s, c) => s + (c.ThanhTien ?? c.SoLuong * c.DonGia), 0);
-
+  }, [order.MaDonHang]);
   return (
-    <Modal title={`Chi tiết đơn hàng #${donHang.MaDonHang}`} onClose={onClose} wide>
-      <div className="u-grid u-gap-4 u-mb-6 u-bg-light u-rounded-lg u-p-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
-        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Đại lý</span><div className="u-font-black u-text-dark u-mt-3">{donHang.TenDaiLy || `#${donHang.MaDaiLy}`}</div></div>
-        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Trạng thái</span><div className="u-mt-3"><StatusBadge status={donHang.TrangThai} /></div></div>
-        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Ngày đặt</span><div className="u-font-black u-text-dark u-mt-3">{donHang.NgayDat ? new Date(donHang.NgayDat).toLocaleDateString("vi-VN") : "—"}</div></div>
-        <div><span className="u-text-sm u-text-muted u-font-bold" style={{ textTransform: "uppercase" }}>Ghi chú</span><div className="u-text-muted u-text-md u-mt-3">{donHang.GhiChu || "—"}</div></div>
+    <Modal title={`Chi tiet don hang #${order.MaDonHang}`} onClose={onClose} wide>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16, padding: "12px 14px", background: "#f8fafc", borderRadius: 10 }}>
+        <div><span style={{ fontSize: 11, color: "#888" }}>Dai ly</span><div style={{ fontWeight: 700, fontSize: 13 }}>{order.TenDaiLy || "--"}</div></div>
+        <div><span style={{ fontSize: 11, color: "#888" }}>Ngay dat</span><div style={{ fontWeight: 700, fontSize: 13 }}>{order.NgayDat ? new Date(order.NgayDat).toLocaleDateString("vi-VN") : "--"}</div></div>
+        <div><span style={{ fontSize: 11, color: "#888" }}>Trang thai</span><div style={{ marginTop: 3 }}><StatusBadge status={order.TrangThai} /></div></div>
+        <div><span style={{ fontSize: 11, color: "#888" }}>Ghi chu</span><div style={{ fontWeight: 600, fontSize: 13 }}>{order.GhiChu || "--"}</div></div>
       </div>
-      {loading ? <p className="empty-msg">Đang tải...</p> : err ? <p className="u-text-danger u-text-center">{err}</p> : (
-        <>
-          <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Đơn giá", "Thành tiền"]}>
-            {chiTiet.map((c, i) => (
-              <tr key={i}>
-                <Td><b>{c.TenSanPham || `#${c.MaLoNongSan}`}</b></Td>
-                <Td>{c.DonVi || "kg"}</Td>
-                <Td>{c.SoLuong.toLocaleString()}</Td>
-                <Td>{c.DonGia.toLocaleString()} d</Td>
-                <Td><b>{(c.ThanhTien ?? c.SoLuong * c.DonGia).toLocaleString()} d</b></Td>
-              </tr>
-            ))}
-          </StyledTable>
-          <div className="u-text-right u-mt-4 u-text-lg u-font-black u-text-primary">
-            Tổng giá trị: {tong.toLocaleString()} đ
-          </div>
-        </>
-      )}
-    </Modal>
-  );
-}
-
-// ─── OrderModal ──────────────────────────────────────────────────────────────
-interface ChiTietRow { maDaiLy: string; maLo: string; tenSanPham: string; soLuong: string; donGia: string; }
-
-function OrderModal({ maSieuThi, onClose, onSaved }: { maSieuThi: number; onClose: () => void; onSaved: () => void }) {
-  const [daiLys, setDaiLys] = useState<DaiLy[]>([]);
-  const [lots, setLots] = useState<LoNongSan[]>([]);
-  const [maDaiLy, setMaDaiLy] = useState("");
-  const [ghiChu, setGhiChu] = useState("");
-  const [rows, setRows] = useState<ChiTietRow[]>([{ maDaiLy: "", maLo: "", tenSanPham: "", soLuong: "", donGia: "" }]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    apiFetch("/api/dai-ly/get-all").then(d => { setDaiLys(Array.isArray(d) ? d : []); }).catch(() => {});
-    apiFetch("/api/lo-nong-san/get-all").then(d => { setLots(Array.isArray(d) ? d : []); }).catch(() => {});
-  }, []);
-
-  function setRow(i: number, field: keyof ChiTietRow, val: string) {
-    setRows(rs => rs.map((r, idx) => {
-      if (idx !== i) return r;
-      if (field === "maLo") {
-        const lot = lots.find(l => String(l.MaLo) === val);
-        return { ...r, maLo: val, tenSanPham: lot?.TenSanPham || "" };
-      }
-      return { ...r, [field]: val };
-    }));
-  }
-
-  async function handleSave() {
-    setLoading(true); setErr("");
-    try {
-      if (!maDaiLy) throw new Error("Vui lòng chọn đại lý");
-      const validRows = rows.filter(r => r.maLo && r.soLuong && r.donGia);
-      if (!validRows.length) throw new Error("Thêm ít nhất 1 sản phẩm");
-      const res = await apiFetch("/api/sieuthi/donhang/tao-don-hang", {
-        method: "POST",
-        body: JSON.stringify({ MaSieuThi: maSieuThi, MaDaiLy: Number(maDaiLy), GhiChu: ghiChu || null }),
-      });
-      const maDon = res.MaDonHang || res.maDonHang;
-      for (const row of validRows) {
-        await apiFetch("/api/sieuthi/donhang/them-chi-tiet", {
-          method: "POST",
-          body: JSON.stringify({ MaDonHang: maDon, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
-        });
-      }
-      onSaved(); onClose();
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Lỗi tạo đơn hàng");
-    } finally { setLoading(false); }
-  }
-
-  return (
-    <Modal title="Tạo đơn hàng mới" onClose={onClose} wide>
-      {err && <div className="error-msg">{err}</div>}
-      <FormField label="Đại lý *">
-        <select className="select" value={maDaiLy} onChange={e => setMaDaiLy(e.target.value)}>
-          <option value="">-- Chọn đại lý --</option>
-          {daiLys.map(d => <option key={d.MaDaiLy} value={d.MaDaiLy}>{d.TenDaiLy}</option>)}
-        </select>
-      </FormField>
-      <FormField label="Ghi chú">
-        <input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Ghi chú đơn hàng..." />
-      </FormField>
-      <div className="u-mb-4">
-        <div className="u-flex u-justify-between u-items-center u-mb-2">
-          <label className="u-text-sm u-font-bold u-text-muted">Chi tiết sản phẩm *</label>
-          <button onClick={() => setRows(rs => [...rs, { maDaiLy: "", maLo: "", tenSanPham: "", soLuong: "", donGia: "" }])}
-            className="u-text-sm u-font-bold u-text-primary u-border u-rounded-md u-px-2" style={{ background: "none", cursor: "pointer", padding: "4px 10px" }}>+ Thêm sản phẩm</button>
-        </div>
-        <div className="u-grid u-gap-2 u-mb-2" style={{ gridTemplateColumns: "2fr 1fr 1fr 28px" }}>
-          {["Lô nông sản", "Số lượng", "Đơn giá (đ)", ""].map(h => (
-            <div key={h} className="u-text-sm u-font-bold u-text-muted" style={{ textTransform: "uppercase" }}>{h}</div>
+      {loading ? <p style={{ color: "#aaa", textAlign: "center" }}>Dang tai...</p> : (
+        <StyledTable headers={["San pham", "Don vi", "So luong", "Don gia", "Thanh tien"]}>
+          {details.map((d, i) => (
+            <tr key={i}>
+              <Td><b>{d.TenSanPham}</b></Td>
+              <Td style={{ color: "#888" }}>{d.DonViTinh || "--"}</Td>
+              <Td>{d.SoLuong?.toLocaleString("vi-VN")}</Td>
+              <Td>{d.DonGia?.toLocaleString("vi-VN")} d</Td>
+              <Td><b style={{ color: C.primary }}>{d.ThanhTien?.toLocaleString("vi-VN")} d</b></Td>
+            </tr>
           ))}
-        </div>
-        {rows.map((row, i) => (
-          <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: "2fr 1fr 1fr 28px" }}>
-            <select className="select" value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
-              <option value="">-- Chọn lô --</option>
-              {lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham}{l.SoLuongHienTai ? ` (còn ${l.SoLuongHienTai})` : ""}</option>)}
-            </select>
-            <input className="input" type="number" placeholder="SL" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} />
-            <input className="input" type="number" placeholder="Giá" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} />
-            <button onClick={() => setRows(rs => rs.filter((_, idx) => idx !== i))} className="u-text-danger u-text-xl u-font-bold" style={{ background: "none", border: "none", cursor: "pointer" }}>×</button>
-          </div>
-        ))}
-      </div>
-      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
-        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
-        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : "Tạo đơn hàng"}</PrimaryBtn>
+        </StyledTable>
+      )}
+      {details.length === 0 && !loading && <p style={{ textAlign: "center", color: "#aaa", padding: "12px 0" }}>Khong co chi tiet</p>}
+      <div style={{ marginTop: 14, padding: "10px 14px", background: "#f0f4ff", borderRadius: 8, display: "flex", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: 700, color: C.dark }}>Tong gia tri</span>
+        <span style={{ fontWeight: 800, fontSize: 16, color: C.primary }}>{order.TongGiaTri?.toLocaleString("vi-VN")} d</span>
       </div>
     </Modal>
   );
 }
 
-// ─── EditOrderModal ───────────────────────────────────────────────────────────
-function EditOrderModal({ donHang, onClose, onSaved }: { donHang: DonHang; onClose: () => void; onSaved: () => void }) {
-  const [lots, setLots] = useState<LoNongSan[]>([]);
-  const [chiTiet, setChiTiet] = useState<ChiTietDonHang[]>([]);
-  const [ghiChu, setGhiChu] = useState(donHang.GhiChu || "");
-  const [newRows, setNewRows] = useState<ChiTietRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    apiFetch("/api/lo-nong-san/get-all").then(d => setLots(Array.isArray(d) ? d : [])).catch(() => {});
-    apiFetch(`/api/sieuthi/donhang/${donHang.MaDonHang}/chi-tiet`)
-      .then(d => setChiTiet(Array.isArray(d) ? d : d.chiTiet || []))
-      .catch(e => setErr(e.message));
-  }, [donHang.MaDonHang]);
-
-  async function handleSave() {
-    setLoading(true); setErr("");
-    try {
-      await apiFetch(`/api/sieuthi/donhang/${donHang.MaDonHang}/ghi-chu`, {
-        method: "PUT",
-        body: JSON.stringify({ GhiChu: ghiChu }),
-      });
-      for (const row of newRows.filter(r => r.maLo && r.soLuong && r.donGia)) {
-        await apiFetch("/api/sieuthi/donhang/them-chi-tiet", {
-          method: "POST",
-          body: JSON.stringify({ MaDonHang: donHang.MaDonHang, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }),
-        });
-      }
-      onSaved(); onClose();
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Lỗi cập nhật");
-    } finally { setLoading(false); }
-  }
-
-  async function handleDeleteChiTiet(maChiTiet: number) {
-    if (!window.confirm("Xóa sản phẩm này khỏi đơn?")) return;
-    try {
-      await apiFetch(`/api/sieuthi/donhang/xoa-chi-tiet`, {
-        method: "DELETE",
-        body: JSON.stringify({ MaChiTiet: maChiTiet }),
-      });
-      setChiTiet(cs => cs.filter(c => c.MaChiTiet !== maChiTiet));
-    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Lỗi xóa"); }
-  }
-
-  return (
-    <Modal title={`Sửa đơn hàng #${donHang.MaDonHang}`} onClose={onClose} wide>
-      {err && <div className="error-msg">{err}</div>}
-      <FormField label="Ghi chú">
-        <input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} />
-      </FormField>
-      <div className="u-mb-5">
-        <label className="form-label">Sản phẩm hiện tại</label>
-        {chiTiet.length === 0 ? <p className="u-text-muted u-text-sm">Chưa có sản phẩm</p> : (
-          <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn giá", "Thành tiền", ""]}>
-            {chiTiet.map(c => (
-              <tr key={c.MaChiTiet}>
-                <Td><b>{c.TenSanPham || `#${c.MaLoNongSan}`}</b></Td>
-                <Td>{c.SoLuong}</Td>
-                <Td>{c.DonGia.toLocaleString()} đ</Td>
-                <Td><b>{(c.ThanhTien ?? c.SoLuong * c.DonGia).toLocaleString()} đ</b></Td>
-                <Td><ActionBtn onClick={() => handleDeleteChiTiet(c.MaChiTiet)} color="#dc2626">Xóa</ActionBtn></Td>
-              </tr>
-            ))}
-          </StyledTable>
-        )}
-      </div>
-      <div className="u-mb-4">
-        <div className="u-flex u-justify-between u-items-center u-mb-3">
-          <label className="form-label u-mb-1">Thêm sản phẩm mới</label>
-          <button className="btn btn-secondary" style={{ padding: "4px 12px" }} onClick={() => setNewRows(rs => [...rs, { maDaiLy: "", maLo: "", tenSanPham: "", soLuong: "", donGia: "" }])}>+ Thêm</button>
-        </div>
-        {newRows.map((row, i) => (
-          <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: "2fr 1fr 1fr 28px" }}>
-            <select className="select" value={row.maLo} onChange={e => setNewRows(rs => rs.map((r, idx) => idx === i ? { ...r, maLo: e.target.value } : r))}>
-              <option value="">-- Chọn lô --</option>
-              {lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham}</option>)}
-            </select>
-            <input className="input" type="number" placeholder="SL" value={row.soLuong} onChange={e => setNewRows(rs => rs.map((r, idx) => idx === i ? { ...r, soLuong: e.target.value } : r))} />
-            <input className="input" type="number" placeholder="Giá" value={row.donGia} onChange={e => setNewRows(rs => rs.map((r, idx) => idx === i ? { ...r, donGia: e.target.value } : r))} />
-            <button onClick={() => setNewRows(rs => rs.filter((_, idx) => idx !== i))} className="u-text-danger u-text-xl" style={{ background: "none", border: "none", cursor: "pointer" }}>×</button>
-          </div>
-        ))}
-      </div>
-      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
-        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
-        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : "Lưu thay đổi"}</PrimaryBtn>
-      </div>
-    </Modal>
-  );
-}
-
-// ─── KhoModal ─────────────────────────────────────────────────────────────────
-function KhoModal({ kho, maSieuThi, onClose, onSaved }: { kho: KhoHang | null; maSieuThi: number; onClose: () => void; onSaved: () => void }) {
+// Kho Modal - TAO / SUA KHO
+function KhoModal({ kho, maSieuThi, onClose, onSaved }: { kho?: ApiKho; maSieuThi: number; onClose: () => void; onSaved: () => void }) {
   const [tenKho, setTenKho] = useState(kho?.TenKho || "");
   const [diaChi, setDiaChi] = useState(kho?.DiaChi || "");
   const [trangThai, setTrangThai] = useState(kho?.TrangThai || "hoat_dong");
@@ -392,663 +158,668 @@ function KhoModal({ kho, maSieuThi, onClose, onSaved }: { kho: KhoHang | null; m
   const [err, setErr] = useState("");
 
   async function handleSave() {
+    if (!tenKho.trim()) return setErr("Ten kho khong duoc de trong");
     setLoading(true); setErr("");
     try {
-      if (!tenKho.trim()) throw new Error("Vui lòng nhập tên kho");
       if (kho) {
-        await apiFetch("/api/KhoHang/cap-nhat-kho", {
-          method: "PUT",
-          body: JSON.stringify({ MaKho: kho.MaKho, TenKho: tenKho, DiaChi: diaChi, TrangThai: trangThai }),
-        });
+        await apiFetch("/api/KhoHang/cap-nhat-kho", { method: "PUT", body: JSON.stringify({ MaKho: kho.MaKho, TenKho: tenKho, DiaChi: diaChi, TrangThai: trangThai }) });
       } else {
-        await apiFetch("/api/KhoHang/tao-kho", {
-          method: "POST",
-          body: JSON.stringify({ LoaiKho: "sieuthi", MaSieuThi: maSieuThi, TenKho: tenKho, DiaChi: diaChi }),
-        });
+        await apiFetch("/api/KhoHang/tao-kho", { method: "POST", body: JSON.stringify({ LoaiKho: "sieuthi", MaSieuThi: maSieuThi, TenKho: tenKho, DiaChi: diaChi }) });
       }
       onSaved(); onClose();
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Lỗi lưu kho");
-    } finally { setLoading(false); }
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Loi luu kho"); }
+    finally { setLoading(false); }
   }
 
   return (
-    <Modal title={kho ? `Sửa kho: ${kho.TenKho}` : "Tạo kho mới"} onClose={onClose}>
-      {err && <div className="error-msg">{err}</div>}
-      <FormField label="Tên kho *">
-        <input className="input" value={tenKho} onChange={e => setTenKho(e.target.value)} placeholder="Nhập tên kho..." />
-      </FormField>
-      <FormField label="Địa chỉ">
-        <input className="input" value={diaChi} onChange={e => setDiaChi(e.target.value)} placeholder="Địa chỉ kho..." />
-      </FormField>
+    <Modal title={kho ? `Sua kho: ${kho.TenKho}` : "Tao kho moi"} onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+      <FormField label="Ten kho *"><input style={inp} value={tenKho} onChange={e => setTenKho(e.target.value)} placeholder="Nhap ten kho..." /></FormField>
+      <FormField label="Dia chi"><input style={inp} value={diaChi} onChange={e => setDiaChi(e.target.value)} placeholder="Nhap dia chi..." /></FormField>
       {kho && (
-        <FormField label="Trạng thái">
-          <select className="select" value={trangThai} onChange={e => setTrangThai(e.target.value)}>
-            <option value="hoat_dong">Hoạt động</option>
-            <option value="tam_dong">Tạm dừng</option>
+        <FormField label="Trang thai">
+          <select style={inp} value={trangThai} onChange={e => setTrangThai(e.target.value)}>
+            <option value="hoat_dong">Hoat dong</option>
+            <option value="ngung_hoat_dong">Ngung hoat dong</option>
           </select>
         </FormField>
       )}
-      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
-        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
-        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : kho ? "Cập nhật" : "Tạo kho"}</PrimaryBtn>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Huy</button>
+        <PrimaryBtn onClick={handleSave} disabled={loading}>{loading ? "Dang luu..." : "Luu"}</PrimaryBtn>
       </div>
     </Modal>
   );
 }
 
-// ─── ProfileModal ─────────────────────────────────────────────────────────────
-function ProfileModal({ onClose, onEdit }: { onClose: () => void; onEdit: () => void }) {
-  const user = getCurrentUser();
-  if (!user) return null;
-  return (
-    <Modal title="Thông tin tài khoản" onClose={onClose}>
-      <div className="u-flex u-flex-col u-gap-4">
-        <div className="u-flex u-items-center u-gap-5 u-p-6 u-rounded-lg u-border" style={{ background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)" }}>
-          <div className="avatar" style={{ width: 64, height: 64, fontSize: 24 }}>
-            {user.tenHienThi?.charAt(0).toUpperCase() || "S"}
-          </div>
-          <div>
-            <div className="u-font-black u-text-lg u-text-dark">{user.tenHienThi}</div>
-            <div className="u-text-sm u-text-primary u-font-bold" style={{ textTransform: "uppercase", letterSpacing: 1 }}>Cửa hàng Siêu thị</div>
-          </div>
-        </div>
-        <div className="u-px-2">
-          {[
-            { label: "Mã tài khoản", value: user.maTaiKhoan },
-            { label: "Số điện thoại", value: user.soDienThoai || "—" },
-            { label: "Email", value: user.email || "—" },
-            { label: "Địa chỉ", value: user.diaChi || "—" },
-          ].map(item => (
-            <div key={item.label} className="u-flex u-justify-between u-border-b" style={{ padding: "14px 0" }}>
-              <span className="u-text-sm u-text-muted u-font-medium">{item.label}</span>
-              <span className="u-text-sm u-font-bold u-text-dark">{String(item.value)}</span>
-            </div>
-          ))}
-        </div>
-        <div className="u-flex u-justify-end u-mt-3">
-          <PrimaryBtn onClick={onEdit}>Chỉnh sửa thông tin</PrimaryBtn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function EditProfileModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const user = getCurrentUser();
-  const [hoTen, setHoTen] = useState(user?.tenHienThi || "");
-  const [sdt, setSdt] = useState(user?.soDienThoai || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [diaChi, setDiaChi] = useState(user?.diaChi || "");
+// Order Modal - TAO DON HANG
+function OrderModal({ onClose, onSaved, maSieuThi }: { onClose: () => void; onSaved: () => void; maSieuThi: number; }) {
+  const [daiLys, setDaiLys] = useState<{ MaDaiLy: number; TenDaiLy: string }[]>([]);
+  const [maDaiLy, setMaDaiLy] = useState("");
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [rows, setRows] = useState<ChiTietRow[]>([{ maLo: "", tenLo: "", soLuong: "", donGia: "" }]);
+  const [ghiChu, setGhiChu] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  useEffect(() => {
+    apiFetch("/api/dai-ly/get-all")
+      .then((d: { MaDaiLy: number; TenDaiLy: string }[]) => { setDaiLys(d); if (d.length) setMaDaiLy(String(d[0].MaDaiLy)); })
+      .catch(() => setErr("Khong tai duoc danh sach dai ly"));
+  }, []);
+
+  useEffect(() => {
+    if (!maDaiLy) return;
+    apiFetch("/api/lo-nong-san/get-all")
+      .then((d: { MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]) => {
+        setLots(d);
+        setRows([{ maLo: d[0] ? String(d[0].MaLo) : "", tenLo: d[0]?.TenSanPham || "", soLuong: "", donGia: "" }]);
+      }).catch(console.error);
+  }, [maDaiLy]);
+
+  function setRow(i: number, field: keyof ChiTietRow, val: string) {
+    setRows(rs => rs.map((r, idx) => {
+      if (idx !== i) return r;
+      if (field === "maLo") { const lot = lots.find(l => String(l.MaLo) === val); return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" }; }
+      return { ...r, [field]: val };
+    }));
+  }
+
   async function handleSave() {
-    if (!user) return;
+    const valid = rows.filter(r => r.maLo && r.soLuong && r.donGia);
+    if (!maDaiLy) return setErr("Vui long chon dai ly");
+    if (!valid.length) return setErr("Them it nhat 1 lo hang");
     setLoading(true); setErr("");
     try {
-      await apiUpdateProfile({ maTaiKhoan: user.maTaiKhoan, hoTen, soDienThoai: sdt, email, diaChi });
+      const res = await apiFetch("/api/sieuthi/donhang/tao-don-hang", { method: "POST", body: JSON.stringify({ MaSieuThi: maSieuThi, MaDaiLy: Number(maDaiLy), GhiChu: ghiChu || null }) });
+      for (const row of valid) {
+        await apiFetch("/api/sieuthi/donhang/them-chi-tiet", { method: "POST", body: JSON.stringify({ MaDonHang: res.MaDonHang, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }) });
+      }
       onSaved(); onClose();
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Lỗi cập nhật");
-    } finally { setLoading(false); }
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Loi tao don hang"); }
+    finally { setLoading(false); }
   }
 
   return (
-    <Modal title="Chỉnh sửa thông tin" onClose={onClose}>
-      {err && <div className="error-msg">{err}</div>}
-      <FormField label="Họ tên"><input className="input" value={hoTen} onChange={e => setHoTen(e.target.value)} /></FormField>
-      <FormField label="Số điện thoại"><input className="input" value={sdt} onChange={e => setSdt(e.target.value)} /></FormField>
-      <FormField label="Email"><input className="input" value={email} onChange={e => setEmail(e.target.value)} /></FormField>
-      <FormField label="Địa chỉ"><input className="input" value={diaChi} onChange={e => setDiaChi(e.target.value)} /></FormField>
-      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
-        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
-        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : "Lưu thay đổi"}</PrimaryBtn>
+    <Modal title="Tao don dat hang" onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+      <FormField label="Dai ly *">
+        <select style={inp} value={maDaiLy} onChange={e => setMaDaiLy(e.target.value)}>
+          {daiLys.length === 0 ? <option value="">-- Dang tai... --</option> : daiLys.map(d => <option key={d.MaDaiLy} value={d.MaDaiLy}>{d.TenDaiLy}</option>)}
+        </select>
+      </FormField>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>Chi tiet don hang *</label>
+          <button onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: "" }])}
+            style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: "none", border: `1px solid ${C.primary}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>+ Them lo</button>
+        </div>
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+            <select style={inp} value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
+              {lots.length === 0 ? <option value="">-- Khong co lo --</option> : lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (con {l.SoLuongHienTai} kg)</option>)}
+            </select>
+            <input style={inp} type="number" min="0" placeholder="So luong" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <input style={inp} type="number" min="0" placeholder="Don gia" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <button onClick={() => setRows(rs => rs.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>x</button>
+          </div>
+        ))}
+      </div>
+      <FormField label="Ghi chu"><input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuy chon..." /></FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Huy</button>
+        <PrimaryBtn onClick={handleSave} disabled={loading}>{loading ? "Dang luu..." : "Luu don"}</PrimaryBtn>
       </div>
     </Modal>
   );
 }
 
-// ─── Dashboard Section ────────────────────────────────────────────────────────
-function DashboardSection({ donHangs, khoHangs, onViewOrder }: {
-  donHangs: DonHang[];
-  khoHangs: KhoHang[];
-  onViewOrder: (d: DonHang) => void;
-}) {
-  const tongDon = donHangs.length;
-  const choNhan = donHangs.filter(d => d.TrangThai === "chua_nhan").length;
-  const daNhan = donHangs.filter(d => d.TrangThai === "da_nhan").length;
-  const tonKho = khoHangs.reduce((s, k) => s + (k.TongTonKho || 0), 0);
+// Edit Order Modal
+function EditOrderModal({ order, onClose, onSaved }: { order: ApiDonHang; onClose: () => void; onSaved: () => void; }) {
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [rows, setRows] = useState<ChiTietRowEdit[]>([]);
+  const [ghiChu, setGhiChu] = useState(order.GhiChu || "");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    apiFetch(`/api/sieuthi/donhang/${order.MaDonHang}/chi-tiet`)
+      .then((d: { MaLo: number; TenSanPham: string; SoLuong: number; DonGia: number }[]) => {
+        setRows(Array.isArray(d) ? d.map(x => ({ maLo: String(x.MaLo), tenLo: x.TenSanPham || "", soLuong: String(x.SoLuong), donGia: String(x.DonGia), isExisting: true })) : []);
+      }).catch(() => setErr("Khong tai duoc chi tiet don"));
+    apiFetch("/api/lo-nong-san/get-all").then((d: { MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]) => setLots(d)).catch(console.error);
+  }, [order.MaDonHang]);
+
+  function setRow(i: number, field: keyof ChiTietRowEdit, val: string) {
+    setRows(rs => rs.map((r, idx) => {
+      if (idx !== i) return r;
+      if (field === "maLo") { const lot = lots.find(l => String(l.MaLo) === val); return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" }; }
+      return { ...r, [field]: val };
+    }));
+  }
+
+  async function handleDeleteRow(row: ChiTietRowEdit, i: number) {
+    if (!row.isExisting) { setRows(rs => rs.filter((_, idx) => idx !== i)); return; }
+    if (!window.confirm("Xoa lo nay khoi don?")) return;
+    try {
+      await apiFetch("/api/sieuthi/donhang/xoa-chi-tiet", { method: "DELETE", body: JSON.stringify({ MaDonHang: order.MaDonHang, MaLo: Number(row.maLo) }) });
+      setRows(rs => rs.filter((_, idx) => idx !== i));
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Loi xoa lo"); }
+  }
+
+  async function handleSave() {
+    setLoading(true); setErr("");
+    try {
+      await apiFetch(`/api/sieuthi/donhang/${order.MaDonHang}/ghi-chu`, { method: "PUT", body: JSON.stringify({ GhiChu: ghiChu }) });
+      for (const row of rows.filter(r => r.isExisting && r.maLo && r.soLuong && r.donGia)) {
+        await apiFetch("/api/sieuthi/donhang/cap-nhat-chi-tiet", { method: "PUT", body: JSON.stringify({ MaDonHang: order.MaDonHang, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }) });
+      }
+      for (const row of rows.filter(r => !r.isExisting && r.maLo && r.soLuong && r.donGia)) {
+        await apiFetch("/api/sieuthi/donhang/them-chi-tiet", { method: "POST", body: JSON.stringify({ MaDonHang: order.MaDonHang, MaLo: Number(row.maLo), SoLuong: Number(row.soLuong), DonGia: Number(row.donGia) }) });
+      }
+      onSaved(); onClose();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Loi luu don hang"); }
+    finally { setLoading(false); }
+  }
 
   return (
-    <div>
-      <div className="stat-grid">
-        <StatCard icon="📋" label="Tổng đơn hàng" value={tongDon} accent="#2563eb" />
-        <StatCard icon="⏳" label="Chờ nhận" value={choNhan} accent="#d97706" />
-        <StatCard icon="✅" label="Đã nhận" value={daNhan} accent="#059669" />
-        <StatCard icon="📦" label="Tồn kho (kg)" value={tonKho.toLocaleString()} accent="#7c3aed" />
+    <Modal title={`Sua don #${order.MaDonHang}`} onClose={onClose}>
+      {err && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{err}</div>}
+      <div style={{ marginBottom: 14, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#555" }}>Dai ly: <b>{order.TenDaiLy || "--"}</b></div>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>Chi tiet don hang</label>
+          <button onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: "", isExisting: false }])}
+            style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: "none", border: `1px solid ${C.primary}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>+ Them lo</button>
+        </div>
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 28px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+            {row.isExisting
+              ? <div style={{ padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#333", border: "1.5px solid #dbeafe" }}>{row.tenLo || `Lo #${row.maLo}`}</div>
+              : <select style={inp} value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
+                  {lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham}</option>)}
+                </select>
+            }
+            <input style={inp} type="number" min="0" placeholder="So luong" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <input style={inp} type="number" min="0" placeholder="Don gia" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
+            <button onClick={() => handleDeleteRow(row, i)} style={{ background: "none", border: "none", color: "#dc2626", fontSize: 16, cursor: "pointer", fontWeight: 700 }}>x</button>
+          </div>
+        ))}
+        {rows.length === 0 && <p style={{ color: "#aaa", fontSize: 13, textAlign: "center", padding: "12px 0" }}>Chua co lo nao</p>}
       </div>
-      <div className="u-grid u-gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))" }}>
-        <Panel>
-          <div className="panel-title">Đơn hàng gần đây</div>
-          {donHangs.length === 0
-            ? <p className="empty-msg">Chưa có đơn hàng nào</p>
-            : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng GT", "Ngày đặt", "TT"]}>
-                {donHangs.slice(0, 6).map(d => (
-                  <tr key={d.MaDonHang} onClick={() => onViewOrder(d)} style={{ cursor: "pointer" }}>
-                    <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
-                    <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
-                    <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                    <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                    <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                    <Td><StatusBadge status={d.TrangThai} /></Td>
-                  </tr>
-                ))}
-              </StyledTable>
-          }
-        </Panel>
-        <Panel>
-          <div className="panel-title">Tổng quan kho hàng</div>
-          {khoHangs.length === 0
-            ? <p className="empty-msg">Chưa có kho nào</p>
-            : <div className="u-grid u-gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-                {khoHangs.map(k => (
-                  <div key={k.MaKho} className="u-p-6 u-rounded-lg u-border" style={{ background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)" }}>
-                    <div className="u-font-black u-text-dark u-text-md u-mb-1">{k.TenKho}</div>
-                    <div className="u-text-sm u-text-muted">{k.DiaChi || "—"}</div>
-                    <div className="u-text-primary u-font-black u-mt-3" style={{ fontSize: 15 }}>
-                      {(k.TongTonKho || 0).toLocaleString()} <span className="u-text-sm u-font-medium">kg</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-          }
-        </Panel>
+      <FormField label="Ghi chu"><input style={inp} value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tuy chon..." /></FormField>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+        <button onClick={onClose} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Huy</button>
+        <PrimaryBtn onClick={handleSave} disabled={loading}>{loading ? "Dang luu..." : "Luu don"}</PrimaryBtn>
       </div>
-    </div>
+    </Modal>
   );
 }
 
-// ─── Orders Section ───────────────────────────────────────────────────────────
-function OrdersSection({
-  donHangs, onView, onEdit, onNhan, onHuy, onXoa, onNew, onRefresh
-}: {
-  donHangs: DonHang[];
-  onView: (d: DonHang) => void;
-  onEdit: (d: DonHang) => void;
-  onNhan: (id: number) => void;
-  onHuy: (id: number) => void;
-  onXoa: (id: number) => void;
-  onNew: () => void;
-  onRefresh: () => void;
-}) {
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+// Main App
+export default function SieuThiApp() {
+  const authUser = getCurrentUser();
+  const fullName = authUser?.tenHienThi || "";
 
-  const filtered = donHangs.filter(d => {
-    const matchSearch = !search || String(d.MaDonHang).includes(search) || (d.TenDaiLy || "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "all" || d.TrangThai === filterStatus;
+  useEffect(() => {
+    if (!authUser || authUser.role !== "sieuthi") window.location.href = "/login";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [section, setSection] = useState<Section>("dashboard");
+  const [modal, setModal] = useState<string | null>(null);
+  const [editOrder, setEditOrder] = useState<ApiDonHang | null>(null);
+  const [detailOrder, setDetailOrder] = useState<ApiDonHang | null>(null);
+  const [editKho, setEditKho] = useState<ApiKho | undefined>(undefined);
+
+  const [apiOrders, setApiOrders] = useState<ApiDonHang[]>([]);
+  const [apiOrdersLoading, setApiOrdersLoading] = useState(false);
+  const [apiOrdersErr, setApiOrdersErr] = useState("");
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
+
+  const [khoList, setKhoList] = useState<ApiKho[]>([]);
+  const [khoLoading, setKhoLoading] = useState(false);
+
+  const [profileForm, setProfileForm] = useState({ hoTen: fullName, sdt: authUser?.soDienThoai || "", email: authUser?.email || "", diaChi: authUser?.diaChi || "" });
+  const [profileErr, setProfileErr] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const loadApiOrders = useCallback(async () => {
+    if (!authUser?.maDoiTuong) return;
+    setApiOrdersLoading(true); setApiOrdersErr("");
+    try {
+      const data = await apiFetch(`/api/sieuthi/donhang/sieu-thi/${authUser.maDoiTuong}`);
+      setApiOrders(Array.isArray(data) ? data : []);
+    } catch (e: unknown) { setApiOrdersErr(e instanceof Error ? e.message : "Loi tai don hang"); }
+    finally { setApiOrdersLoading(false); }
+  }, [authUser?.maDoiTuong]);
+
+  const loadKho = useCallback(async () => {
+    if (!authUser?.maDoiTuong) return;
+    setKhoLoading(true);
+    try {
+      const data = await apiFetch(`/api/KhoHang/sieu-thi/${authUser.maDoiTuong}`);
+      setKhoList(Array.isArray(data) ? data : []);
+    } catch { setKhoList([]); }
+    finally { setKhoLoading(false); }
+  }, [authUser?.maDoiTuong]);
+
+  useEffect(() => { loadApiOrders(); loadKho(); }, [loadApiOrders, loadKho]);
+
+  const huyDonHang = async (id: number) => {
+    if (!window.confirm("Huy don hang nay?")) return;
+    try { await apiFetch(`/api/sieuthi/donhang/huy-don-hang/${id}`, { method: "PUT" }); loadApiOrders(); }
+    catch (e: unknown) { alert(e instanceof Error ? e.message : "Loi huy don"); }
+  };
+
+  const handleDeleteOrder = async (id: number) => {
+    if (!window.confirm("Xoa don hang nay? Chi xoa duoc don chua nhan.")) return;
+    try { await apiFetch(`/api/sieuthi/donhang/${id}`, { method: "DELETE" }); loadApiOrders(); }
+    catch (e: unknown) { alert(e instanceof Error ? e.message : "Loi xoa don"); }
+  };
+
+  const handleNhanHang = async (id: number) => {
+    if (!window.confirm("Xac nhan da nhan hang?")) return;
+    try { await apiFetch(`/api/sieuthi/donhang/nhan-hang/${id}`, { method: "PUT" }); loadApiOrders(); loadKho(); }
+    catch (e: unknown) { alert(e instanceof Error ? e.message : "Loi nhan hang"); }
+  };
+
+  const handleXoaKho = async (maKho: number) => {
+    if (!window.confirm("Xoa kho nay?")) return;
+    try { await apiFetch(`/api/KhoHang/xoa-kho/${maKho}`, { method: "DELETE" }); loadKho(); }
+    catch (e: unknown) { alert(e instanceof Error ? e.message : "Loi xoa kho"); }
+  };
+
+  async function saveProfile() {
+    if (!profileForm.hoTen) return setProfileErr("Ho ten khong duoc de trong");
+    if (!authUser) return setProfileErr("Phien dang nhap het han");
+    setProfileLoading(true); setProfileErr("");
+    try {
+      await apiUpdateProfile({ maTaiKhoan: authUser.maTaiKhoan, hoTen: profileForm.hoTen, soDienThoai: profileForm.sdt, email: profileForm.email, diaChi: profileForm.diaChi });
+      setModal(null);
+    } catch (e: unknown) { setProfileErr(e instanceof Error ? e.message : "Loi cap nhat"); }
+    finally { setProfileLoading(false); }
+  }
+
+  const tongDon = apiOrders.length;
+  const daNhan = apiOrders.filter(o => o.TrangThai === "da_nhan").length;
+  const chuaNhan = apiOrders.filter(o => o.TrangThai === "chua_nhan").length;
+  const daHuy = apiOrders.filter(o => o.TrangThai === "da_huy").length;
+  const tongTonKho = khoList.reduce((s, k) => s + (k.SoLuong || 0), 0);
+  const tongGiaTriDaNhan = apiOrders.filter(o => o.TrangThai === "da_nhan").reduce((s, o) => s + (o.TongGiaTri || 0), 0);
+
+  const filteredOrders = apiOrders.filter(o => {
+    const matchSearch = !orderSearch || (o.TenDaiLy || "").toLowerCase().includes(orderSearch.toLowerCase()) || String(o.MaDonHang).includes(orderSearch);
+    const matchStatus = orderStatusFilter === "all" || o.TrangThai === orderStatusFilter;
     return matchSearch && matchStatus;
   });
 
+  const daiLyStats = apiOrders.reduce((acc, o) => {
+    const key = o.TenDaiLy || "Khong ro";
+    if (!acc[key]) acc[key] = { tongDon: 0, tongGiaTri: 0, daNhan: 0 };
+    acc[key].tongDon++;
+    acc[key].tongGiaTri += o.TongGiaTri || 0;
+    if (o.TrangThai === "da_nhan") acc[key].daNhan++;
+    return acc;
+  }, {} as Record<string, { tongDon: number; tongGiaTri: number; daNhan: number }>);
+
   return (
-    <Panel>
-      <div className="panel-title u-flex u-flex-wrap u-gap-4">
-        <span>Quản lý đơn hàng</span>
-        <div className="u-flex u-flex-wrap u-gap-3 u-items-center">
-          <input
-            className="input"
-            style={{ width: 220, padding: "8px 16px" }}
-            placeholder="Tìm kiếm mã đơn, đại lý..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <select className="select" style={{ width: 180, padding: "8px 16px" }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="all">Tất cả trạng thái</option>
-            <option value="chua_nhan">Chưa nhận</option>
-            <option value="da_nhan">Đã nhận</option>
-            <option value="da_huy">Đã hủy</option>
-          </select>
-          <PrimaryBtn onClick={onNew}>+ Tạo đơn hàng</PrimaryBtn>
+    <div style={{ fontFamily: "'Be Vietnam Pro','Segoe UI',sans-serif", background: C.mist, minHeight: "100vh" }}>
+      {/* Sidebar */}
+      <aside style={{ position: "fixed", left: 0, top: 0, width: 248, height: "100vh", background: `linear-gradient(180deg,${C.dark} 0%,${C.darker} 100%)`, color: "#fff", display: "flex", flexDirection: "column", zIndex: 1000 }}>
+        <div style={{ padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 28 }}>🛒</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 16 }}>Sieu Thi</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Quan ly ban le</div>
+            </div>
+          </div>
         </div>
-      </div>
-      {filtered.length === 0
-        ? <p className="empty-msg">Không tìm thấy đơn hàng nào</p>
-        : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ghi chú", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-            {filtered.map(d => (
-              <tr key={d.MaDonHang}>
-                <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
-                <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
-                <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                <Td className="u-text-muted u-text-sm" style={{ maxWidth: 160 }}>{d.GhiChu || "—"}</Td>
-                <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                <Td><StatusBadge status={d.TrangThai} /></Td>
-                <Td>
-                  <div className="u-flex u-gap-1">
-                    <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
-                    {d.TrangThai === "chua_nhan" && <>
-                      <ActionBtn onClick={() => onEdit(d)} color="#7c3aed">Sửa</ActionBtn>
-                      <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Nhận</ActionBtn>
-                      <ActionBtn onClick={() => onHuy(d.MaDonHang)} color="#d97706">Hủy</ActionBtn>
-                      <ActionBtn onClick={() => onXoa(d.MaDonHang)} color="#dc2626">Xóa</ActionBtn>
-                    </>}
+        <div style={{ padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.07)", cursor: "pointer" }} onClick={() => setModal("profile")}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, background: `linear-gradient(135deg,${C.accent},${C.primary})`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🛒</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>{fullName}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>Sieu thi</div>
+            </div>
+          </div>
+        </div>
+        <nav style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
+          {NAV.map(n => (
+            <button key={n.id} onClick={() => setSection(n.id)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 18px", background: section === n.id ? "rgba(59,130,246,0.18)" : "none", border: "none", borderLeft: section === n.id ? `3px solid ${C.accent}` : "3px solid transparent", color: section === n.id ? "#fff" : "rgba(255,255,255,0.55)", cursor: "pointer", fontSize: 13, fontWeight: section === n.id ? 700 : 400, textAlign: "left" }}>
+              <span>{n.icon}</span><span>{n.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div style={{ padding: "10px 8px 16px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+          <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px", background: "none", border: "none", color: "rgba(255,255,255,0.45)", cursor: "pointer", fontSize: 12, borderRadius: 8 }} onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
+            <span>🚪</span><span>Dang xuat</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main style={{ marginLeft: 248, padding: "28px 28px 48px", minHeight: "100vh" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: C.dark, margin: 0 }}>{PAGE_TITLES[section]}</h2>
+            <p style={{ fontSize: 12, color: "#aaa", margin: "3px 0 0" }}>Xin chao, {fullName}</p>
+          </div>
+          {section === "orders" && <PrimaryBtn onClick={() => setModal("order")}>+ Tao don hang</PrimaryBtn>}
+          {section === "inventory" && <PrimaryBtn onClick={() => { setEditKho(undefined); setModal("kho"); }}>+ Tao kho moi</PrimaryBtn>}
+        </div>
+
+        {/* Dashboard */}
+        {section === "dashboard" && (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 16, marginBottom: 24 }}>
+              {[
+                { icon: "📋", label: "Tong don hang", value: tongDon,    color: C.primary },
+                { icon: "📥", label: "Cho nhan",      value: chuaNhan,   color: "#b45309" },
+                { icon: "✅", label: "Da nhan",        value: daNhan,     color: "#059669" },
+                { icon: "🏪", label: "Ton kho (kg)",   value: tongTonKho, color: "#7c3aed" },
+              ].map(k => (
+                <Panel key={k.label} style={{ borderTop: `4px solid ${k.color}`, display: "flex", alignItems: "center", gap: 14 }}>
+                  <span style={{ fontSize: 28 }}>{k.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: "#111", lineHeight: 1 }}>{k.value.toLocaleString("vi-VN")}</div>
+                    <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>{k.label}</div>
                   </div>
-                </Td>
-              </tr>
-            ))}
-          </StyledTable>
-      }
-    </Panel>
-  );
-}
+                </Panel>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <Panel>
+                <SectionTitle>Don hang gan day</SectionTitle>
+                <StyledTable headers={["Ma don", "Dai ly", "Tong gia tri", "Ngay dat", "Trang thai"]}>
+                  {apiOrders.slice(0, 6).map(o => (
+                    <tr key={o.MaDonHang} style={{ cursor: "pointer" }} onClick={() => { setDetailOrder(o); setModal("detail"); }}>
+                      <Td><code style={{ fontSize: 11, color: C.primary, fontWeight: 700 }}>#{o.MaDonHang}</code></Td>
+                      <Td>{o.TenDaiLy || "--"}</Td>
+                      <Td style={{ color: C.primary, fontWeight: 700 }}>{o.TongGiaTri ? o.TongGiaTri.toLocaleString("vi-VN") + " d" : "--"}</Td>
+                      <Td style={{ color: "#aaa", fontSize: 11 }}>{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "--"}</Td>
+                      <Td><StatusBadge status={o.TrangThai} /></Td>
+                    </tr>
+                  ))}
+                </StyledTable>
+                {apiOrders.length === 0 && !apiOrdersLoading && <p style={{ textAlign: "center", color: "#aaa", padding: "16px 0" }}>Chua co don hang</p>}
+              </Panel>
+              <Panel>
+                <SectionTitle>Tinh trang kho</SectionTitle>
+                {khoList.length === 0 ? (
+                  <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0" }}>Chua co kho nao</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {Array.from(new Set(khoList.map(k => k.MaKho))).slice(0, 5).map(maKho => {
+                      const items = khoList.filter(k => k.MaKho === maKho);
+                      const tenKho = items[0]?.TenKho || "--";
+                      const tongSL = items.reduce((s, k) => s + (k.SoLuong || 0), 0);
+                      return (
+                        <div key={maKho} style={{ padding: "10px 14px", background: "#f8faff", borderRadius: 10, border: "1px solid #e0eaff" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: C.dark }}>🏪 {tenKho}</span>
+                            <span style={{ background: C.light, color: C.primary, padding: "3px 10px", borderRadius: 10, fontWeight: 700, fontSize: 12 }}>{tongSL.toLocaleString("vi-VN")} kg</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>{items.filter(k => k.TenSanPham).length} loai san pham</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Panel>
+            </div>
+          </div>
+        )}
 
-// ─── Receive Section ──────────────────────────────────────────────────────────
-function ReceiveSection({
-  donHangs, onView, onNhan
-}: {
-  donHangs: DonHang[];
-  onView: (d: DonHang) => void;
-  onNhan: (id: number) => void;
-}) {
-  const choNhan = donHangs.filter(d => d.TrangThai === "chua_nhan");
-  const daNhanHomNay = donHangs.filter(d => {
-    if (d.TrangThai !== "da_nhan") return false;
-    if (!d.NgayDat) return false;
-    const today = new Date().toDateString();
-    return new Date(d.NgayDat).toDateString() === today;
-  });
-
-  return (
-    <div>
-      <div className="stat-grid">
-        <StatCard icon="⏳" label="Đơn chờ nhận" value={choNhan.length} accent="#d97706" />
-        <StatCard icon="✅" label="Đã nhận hôm nay" value={daNhanHomNay.length} accent="#059669" />
-      </div>
-      <Panel>
-        <div className="panel-title">Đơn hàng chờ nhận hàng</div>
-        {choNhan.length === 0
-          ? <p className="empty-msg">Không có đơn hàng nào chờ nhận</p>
-          : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-              {choNhan.map(d => (
-                <tr key={d.MaDonHang}>
-                  <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
-                  <Td><b>{d.TenDaiLy || `#${d.MaDaiLy}`}</b></Td>
-                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                  <Td><StatusBadge status={d.TrangThai} /></Td>
+        {/* Orders */}
+        {section === "orders" && (
+          <Panel>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+              <input style={{ ...inp, width: 220, flex: "none" }} placeholder="Tim dai ly, ma don..." value={orderSearch} onChange={e => setOrderSearch(e.target.value)} />
+              <select style={{ ...inp, width: 160, flex: "none" }} value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)}>
+                <option value="all">Tat ca trang thai</option>
+                <option value="chua_nhan">Chua nhan</option>
+                <option value="da_nhan">Da nhan</option>
+                <option value="da_huy">Da huy</option>
+              </select>
+              <span style={{ fontSize: 12, color: "#888" }}>{filteredOrders.length} don</span>
+            </div>
+            {apiOrdersLoading && <p style={{ color: "#aaa", padding: "12px 0" }}>Dang tai...</p>}
+            {apiOrdersErr && <p style={{ color: "#dc2626", padding: "8px 0" }}>{apiOrdersErr}</p>}
+            <StyledTable headers={["Ma don", "Dai ly", "Tong SL", "Tong gia tri", "Ghi chu", "Ngay dat", "Trang thai", ""]}>
+              {filteredOrders.map(o => (
+                <tr key={o.MaDonHang}>
                   <Td>
-                    <div className="u-flex u-gap-2">
-                      <ActionBtn onClick={() => onView(d)} color="var(--primary)">Xem</ActionBtn>
-                      <ActionBtn onClick={() => onNhan(d.MaDonHang)} color="#059669">Xác nhận nhận hàng</ActionBtn>
-                    </div>
+                    <span style={{ color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 }} onClick={() => { setDetailOrder(o); setModal("detail"); }}>#{o.MaDonHang}</span>
+                  </Td>
+                  <Td>{o.TenDaiLy || "--"}</Td>
+                  <Td>{o.TongSoLuong != null ? o.TongSoLuong.toLocaleString("vi-VN") : "--"}</Td>
+                  <Td style={{ color: C.primary, fontWeight: 700 }}>{o.TongGiaTri ? o.TongGiaTri.toLocaleString("vi-VN") + " d" : "--"}</Td>
+                  <Td style={{ color: "#888", fontSize: 12 }}>{o.GhiChu || "--"}</Td>
+                  <Td style={{ color: "#aaa", fontSize: 11 }}>{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "--"}</Td>
+                  <Td><StatusBadge status={o.TrangThai} /></Td>
+                  <Td>
+                    <ActionBtn onClick={() => { setDetailOrder(o); setModal("detail"); }} color="#6366f1">🔍 Chi tiết</ActionBtn>
+                    {o.TrangThai === "chua_nhan" && (
+                      <>
+                        <ActionBtn onClick={() => { setEditOrder(o); setModal("editOrder"); }} color={C.primary}>Sua</ActionBtn>
+                        <ActionBtn onClick={() => handleNhanHang(o.MaDonHang)} color="#059669">Nhan</ActionBtn>
+                        <ActionBtn onClick={() => huyDonHang(o.MaDonHang)} color="#f59e0b">Huy</ActionBtn>
+                        <ActionBtn onClick={() => handleDeleteOrder(o.MaDonHang)} color="#dc2626">Xoa</ActionBtn>
+                      </>
+                    )}
                   </Td>
                 </tr>
               ))}
             </StyledTable>
-        }
-      </Panel>
-    </div>
-  );
-}
-
-// ─── Inventory Section ────────────────────────────────────────────────────────
-function InventorySection({
-  khoHangs, onNewKho, onEditKho, onDeleteKho
-}: {
-  khoHangs: KhoHang[];
-  onNewKho: () => void;
-  onEditKho: (k: KhoHang) => void;
-  onDeleteKho: (id: number) => void;
-}) {
-  const soKho = khoHangs.length;
-  const tongTonKho = khoHangs.reduce((s, k) => s + (k.TongTonKho || 0), 0);
-  const loaiSanPham = khoHangs.reduce((s, k) => s + (k.SoLoaiSanPham || 0), 0);
-
-  return (
-    <div>
-      <div className="stat-grid">
-        <StatCard icon="🏪" label="Số kho" value={soKho} accent="#2563eb" />
-        <StatCard icon="📦" label="Tổng tồn kho (kg)" value={tongTonKho.toLocaleString()} accent="#7c3aed" />
-        <StatCard icon="🌿" label="Loại sản phẩm" value={loaiSanPham} accent="#059669" />
-      </div>
-      <Panel>
-        <div className="panel-title u-flex u-justify-between u-items-center">
-          <span>Quản lý kho hàng</span>
-          <PrimaryBtn onClick={onNewKho}>+ Tạo kho mới</PrimaryBtn>
-        </div>
-        {khoHangs.length === 0
-          ? <p className="empty-msg">Chưa có kho nào</p>
-          : khoHangs.map(k => (
-              <div key={k.MaKho} className="u-mb-6 u-border u-rounded-lg" style={{ overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
-                <div className="u-flex u-justify-between u-items-center u-p-4 u-bg-light u-border-b">
-                  <div>
-                    <span className="u-font-black u-text-dark" style={{ fontSize: 15 }}>{k.TenKho}</span>
-                    {k.DiaChi && <span className="u-text-sm u-text-muted u-font-medium" style={{ marginLeft: 12 }}>{k.DiaChi}</span>}
-                  </div>
-                  <div className="u-flex u-gap-3 u-items-center">
-                    <span className="badge" style={{ background: "rgba(37,99,235,0.1)", color: "var(--primary)", padding: "6px 14px" }}>Tồn kho: {(k.TongTonKho || 0).toLocaleString()} kg</span>
-                    <ActionBtn onClick={() => onEditKho(k)} color="#7c3aed">Sửa</ActionBtn>
-                    <ActionBtn onClick={() => onDeleteKho(k.MaKho)} color="#dc2626">Xóa</ActionBtn>
-                  </div>
-                </div>
-                {k.SanPham && k.SanPham.length > 0 ? (
-                  <div style={{ padding: "8px 20px 20px" }}>
-                    <StyledTable headers={["Sản phẩm", "Số lượng", "Đơn vị"]}>
-                      {k.SanPham.map((sp, i) => (
-                        <tr key={i}>
-                          <Td><b>{sp.TenSanPham}</b></Td>
-                          <Td>{sp.SoLuong.toLocaleString()}</Td>
-                          <Td>{sp.DonVi || "kg"}</Td>
-                        </tr>
-                      ))}
-                    </StyledTable>
-                  </div>
-                ) : <p className="empty-msg">Kho trống</p>}
-              </div>
-            ))
-        }
-      </Panel>
-    </div>
-  );
-}
-
-// ─── Reports Section ──────────────────────────────────────────────────────────
-function ReportsSection({ donHangs }: { donHangs: DonHang[] }) {
-  const tongDon = donHangs.length;
-  const daNhan = donHangs.filter(d => d.TrangThai === "da_nhan").length;
-  const choNhan = donHangs.filter(d => d.TrangThai === "chua_nhan").length;
-  const daHuy = donHangs.filter(d => d.TrangThai === "da_huy").length;
-  const tongGiaTri = donHangs.reduce((s, d) => s + (d.TongGiaTri || 0), 0);
-  const tongSoLuong = donHangs.reduce((s, d) => s + (d.TongSoLuong || 0), 0);
-
-  const kpis = [
-    { icon: "📋", label: "Tổng đơn hàng", value: tongDon, color: "#2563eb" },
-    { icon: "✅", label: "Đã nhận", value: daNhan, color: "#059669" },
-    { icon: "⏳", label: "Chờ nhận", value: choNhan, color: "#d97706" },
-    { icon: "❌", label: "Đã hủy", value: daHuy, color: "#dc2626" },
-    { icon: "💰", label: "Tổng giá trị (đ)", value: tongGiaTri.toLocaleString(), color: "#7c3aed" },
-    { icon: "📦", label: "Tổng số lượng (kg)", value: tongSoLuong.toLocaleString(), color: "#0891b2" },
-  ];
-
-  // Group by dai ly
-  const byDaiLy: Record<string, { ten: string; tongDon: number; daNhan: number; tongGiaTri: number }> = {};
-  donHangs.forEach(d => {
-    const key = String(d.MaDaiLy);
-    if (!byDaiLy[key]) byDaiLy[key] = { ten: d.TenDaiLy || `Đại lý #${d.MaDaiLy}`, tongDon: 0, daNhan: 0, tongGiaTri: 0 };
-    byDaiLy[key].tongDon++;
-    if (d.TrangThai === "da_nhan") byDaiLy[key].daNhan++;
-    byDaiLy[key].tongGiaTri += d.TongGiaTri || 0;
-  });
-  const daiLyStats = Object.values(byDaiLy);
-
-  return (
-    <div>
-      <div className="u-grid u-gap-5 u-mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        {kpis.map(k => (
-          <Panel key={k.label} className="u-text-center" style={{ borderTop: `4px solid ${k.color}` }}>
-            <div className="u-text-2xl u-mb-3">{k.icon}</div>
-            <div className="u-text-sm u-text-muted u-font-bold u-mb-2" style={{ textTransform: "uppercase" }}>{k.label}</div>
-            <div className="u-text-xl u-font-black" style={{ color: k.color }}>{k.value}</div>
+            {filteredOrders.length === 0 && !apiOrdersLoading && <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0" }}>Khong co don hang nao</p>}
           </Panel>
-        ))}
-      </div>
-      <Panel className="u-mb-6">
-        <div className="panel-title">Thống kê theo đại lý</div>
-        {daiLyStats.length === 0
-          ? <p className="empty-msg">Chưa có dữ liệu</p>
-          : <StyledTable headers={["Đại lý", "Tổng đơn", "Đã nhận", "Tỉ lệ nhận", "Tổng giá trị"]}>
-              {daiLyStats.map((dl, i) => {
-                const tl = dl.tongDon > 0 ? Math.round((dl.daNhan / dl.tongDon) * 100) : 0;
-                return (
-                  <tr key={i}>
-                    <Td><b>{dl.ten}</b></Td>
-                    <Td>{dl.tongDon}</Td>
-                    <Td>{dl.daNhan}</Td>
+        )}
+
+        {/* Receive */}
+        {section === "receive" && (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginBottom: 20 }}>
+              <Panel style={{ borderLeft: `4px solid #b45309` }}>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Cho nhan</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#b45309" }}>{chuaNhan}</div>
+              </Panel>
+              <Panel style={{ borderLeft: `4px solid #059669` }}>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Da nhan hom nay</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#059669" }}>
+                  {apiOrders.filter(o => o.TrangThai === "da_nhan" && o.NgayDat && new Date(o.NgayDat).toDateString() === new Date().toDateString()).length}
+                </div>
+              </Panel>
+            </div>
+            <Panel>
+              <SectionTitle>Don hang dang cho nhan</SectionTitle>
+              <StyledTable headers={["Ma don", "Dai ly", "Tong SL (kg)", "Tong gia tri", "Ngay dat", "Trang thai", ""]}>
+                {apiOrders.filter(o => o.TrangThai === "chua_nhan").map(o => (
+                  <tr key={o.MaDonHang}>
                     <Td>
-                      <div className="u-flex u-items-center u-gap-3">
-                        <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                          <div style={{ width: `${tl}%`, height: "100%", background: "linear-gradient(90deg, #10b981 0%, #059669 100%)", borderRadius: 4 }} />
-                        </div>
-                        <span className="u-text-sm u-font-black u-text-success" style={{ minWidth: 40 }}>{tl}%</span>
-                      </div>
+                      <span style={{ color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 }} onClick={() => { setDetailOrder(o); setModal("detail"); }}>#{o.MaDonHang}</span>
                     </Td>
-                    <Td><b>{dl.tongGiaTri.toLocaleString()} đ</b></Td>
+                    <Td><b>{o.TenDaiLy || "--"}</b></Td>
+                    <Td>{o.TongSoLuong != null ? o.TongSoLuong.toLocaleString("vi-VN") : "--"}</Td>
+                    <Td style={{ color: C.primary, fontWeight: 700 }}>{o.TongGiaTri ? o.TongGiaTri.toLocaleString("vi-VN") + " d" : "--"}</Td>
+                    <Td style={{ color: "#aaa", fontSize: 11 }}>{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "--"}</Td>
+                    <Td><StatusBadge status={o.TrangThai} /></Td>
+                    <Td>
+                      <ActionBtn onClick={() => { setDetailOrder(o); setModal("detail"); }} color="#6366f1">🔍 Chi tiết</ActionBtn>
+                      <ActionBtn onClick={() => handleNhanHang(o.MaDonHang)} color="#059669">Xac nhan nhan hang</ActionBtn>
+                    </Td>
                   </tr>
-                );
-              })}
-            </StyledTable>
-        }
-      </Panel>
-      <Panel>
-        <div className="panel-title">Lịch sử đơn hàng đầy đủ</div>
-        {donHangs.length === 0
-          ? <p className="empty-msg">Chưa có đơn hàng nào</p>
-          : <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL", "Tổng giá trị", "Ngày đặt", "Trạng thái"]}>
-              {donHangs.map(d => (
-                <tr key={d.MaDonHang}>
-                  <Td><code className="u-text-sm u-text-primary u-font-bold">#{d.MaDonHang}</code></Td>
-                  <Td>{d.TenDaiLy || `#${d.MaDaiLy}`}</Td>
-                  <Td>{d.TongSoLuong ? d.TongSoLuong.toLocaleString() : "—"}</Td>
-                  <Td>{d.TongGiaTri ? d.TongGiaTri.toLocaleString() + " đ" : "—"}</Td>
-                  <Td>{d.NgayDat ? new Date(d.NgayDat).toLocaleDateString("vi-VN") : "—"}</Td>
-                  <Td><StatusBadge status={d.TrangThai} /></Td>
-                </tr>
-              ))}
-            </StyledTable>
-        }
-      </Panel>
-    </div>
-  );
-}
-
-// ─── Main SieuThiApp ──────────────────────────────────────────────────────────
-export default function SieuThiApp() {
-  const authUser = getCurrentUser();
-
-  useEffect(() => {
-    if (!authUser || authUser.role !== "sieuthi") {
-      window.location.href = "/login";
-    }
-  }, [authUser]);
-
-  const maSieuThi = authUser?.maDoiTuong || 0;
-
-  type Section = "dashboard" | "orders" | "receive" | "inventory" | "reports";
-  const [activeSection, setActiveSection] = useState<Section>("dashboard");
-  const [donHangs, setDonHangs] = useState<DonHang[]>([]);
-  const [khoHangs, setKhoHangs] = useState<KhoHang[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
-
-  // Modals
-  const [viewOrder, setViewOrder] = useState<DonHang | null>(null);
-  const [editOrder, setEditOrder] = useState<DonHang | null>(null);
-  const [showNewOrder, setShowNewOrder] = useState(false);
-  const [editKho, setEditKho] = useState<KhoHang | null>(null);
-  const [showNewKho, setShowNewKho] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const [showEditProfile, setShowEditProfile] = useState(false);
-
-  function showToast(msg: string, type: "success" | "error" = "success") {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  }
-
-  async function loadData() {
-    if (!maSieuThi) return;
-    setLoading(true);
-    try {
-      const [dh, kh] = await Promise.all([
-        apiFetch(`/api/sieuthi/donhang/sieu-thi/${maSieuThi}`).then(d => Array.isArray(d) ? d : d.donHangs || []),
-        apiFetch(`/api/KhoHang/sieu-thi/${maSieuThi}`).then(d => Array.isArray(d) ? d : d.khoHangs || []),
-      ]);
-      setDonHangs(dh);
-      setKhoHangs(kh);
-    } catch (e) {
-      showToast("Lỗi tải dữ liệu", "error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => { loadData(); }, [maSieuThi]); // loadData is defined inside component but not memoized, using maSieuThi is enough
-
-  async function handleNhan(id: number) {
-    if (!window.confirm("Xác nhận nhận hàng đơn #" + id + "?")) return;
-    try {
-      await apiFetch(`/api/sieuthi/donhang/nhan-hang/${id}`, { method: "PUT" });
-      showToast("Nhận hàng thành công!");
-      loadData();
-    } catch (e: unknown) { showToast(e instanceof Error ? e.message : "Lỗi nhận hàng", "error"); }
-  }
-
-  async function handleHuy(id: number) {
-    if (!window.confirm("Hủy đơn hàng #" + id + "?")) return;
-    try {
-      await apiFetch(`/api/sieuthi/donhang/huy-don-hang/${id}`, { method: "PUT" });
-      showToast("Đã hủy đơn hàng");
-      loadData();
-    } catch (e: unknown) { showToast(e instanceof Error ? e.message : "Lỗi hủy đơn", "error"); }
-  }
-
-  async function handleXoa(id: number) {
-    if (!window.confirm("Xóa đơn hàng #" + id + "? Hành động này không thể hoàn tác.")) return;
-    try {
-      await apiFetch(`/api/sieuthi/donhang/${id}`, { method: "DELETE" });
-      showToast("Đã xóa đơn hàng");
-      loadData();
-    } catch (e: unknown) { showToast(e instanceof Error ? e.message : "Lỗi xóa đơn", "error"); }
-  }
-
-  async function handleDeleteKho(id: number) {
-    if (!window.confirm("Xóa kho này?")) return;
-    try {
-      await apiFetch(`/api/KhoHang/xoa-kho/${id}`, { method: "DELETE" });
-      showToast("Đã xóa kho");
-      loadData();
-    } catch (e: unknown) { showToast(e instanceof Error ? e.message : "Lỗi xóa kho", "error"); }
-  }
-
-  function handleLogout() {
-    clearCurrentUser();
-    window.location.href = "/login";
-  }
-
-  if (!authUser || authUser.role !== "sieuthi") return null;
-
-  const navItems: { id: Section; icon: string; label: string }[] = [
-    { id: "dashboard", icon: "📊", label: "Tổng quan" },
-    { id: "orders",    icon: "📋", label: "Quản lý đơn hàng" },
-    { id: "receive",   icon: "📥", label: "Nhận hàng" },
-    { id: "inventory", icon: "🏪", label: "Quản lý kho" },
-    { id: "reports",   icon: "📈", label: "Báo cáo thống kê" },
-  ];
-
-  return (
-    <div className="sieuthi-app">
-      {/* Sidebar */}
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <div className="logo">AgriChain</div>
-          <div className="logo-sub">Siêu thị</div>
-        </div>
-        <nav className="nav-list">
-          {navItems.map(item => (
-            <button key={item.id} onClick={() => setActiveSection(item.id)}
-              className={`nav-item ${activeSection === item.id ? 'active' : ''}`}>
-              <span className="nav-icon">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-footer">
-          <button className="profile-btn" onClick={() => setShowProfile(true)}>
-            <div className="avatar">
-              {authUser.tenHienThi?.charAt(0).toUpperCase() || "S"}
-            </div>
-            <div className="u-text-left" style={{ overflow: "hidden" }}>
-              <div className="u-font-black u-text-md" style={{ color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{authUser.tenHienThi}</div>
-              <div className="u-text-sm u-font-bold" style={{ color: "var(--primary-light)" }}>Cửa hàng của tôi</div>
-            </div>
-          </button>
-          <button className="logout-btn" onClick={handleLogout}>
-            Đăng xuất
-          </button>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="main-content">
-        <div className="page-header">
-          <h2 className="page-title">
-            <span className="u-text-2xl">{navItems.find(n => n.id === activeSection)?.icon}</span>
-            {navItems.find(n => n.id === activeSection)?.label}
-          </h2>
-          <p className="page-subtitle">Chào mừng trở lại, {authUser.tenHienThi}</p>
-        </div>
-
-        {loading ? (
-          <div className="u-text-center u-py-10">
-            <div className="spinner" style={{ border: "4px solid #f3f3f3", borderTop: "4px solid var(--primary)", borderRadius: "50%", width: 40, height: 40, animation: "spin 1s linear infinite", margin: "0 auto 20px" }}></div>
-            <div className="u-text-muted u-text-lg u-font-medium">Đang tải dữ liệu...</div>
+                ))}
+              </StyledTable>
+              {apiOrders.filter(o => o.TrangThai === "chua_nhan").length === 0 && (
+                <p style={{ textAlign: "center", color: "#aaa", padding: "24px 0" }}>Khong co don hang cho nhan</p>
+              )}
+            </Panel>
           </div>
-        ) : (
-          <div className="section-content u-fade-in" key={activeSection}>
-            {activeSection === "dashboard" && (
-              <DashboardSection donHangs={donHangs} khoHangs={khoHangs} onViewOrder={setViewOrder} />
-            )}
-            {activeSection === "orders" && (
-              <OrdersSection
-                donHangs={donHangs}
-                onView={setViewOrder}
-                onEdit={setEditOrder}
-                onNhan={handleNhan}
-                onHuy={handleHuy}
-                onXoa={handleXoa}
-                onNew={() => setShowNewOrder(true)}
-                onRefresh={loadData}
-              />
-            )}
-            {activeSection === "receive" && (
-              <ReceiveSection donHangs={donHangs} onView={setViewOrder} onNhan={handleNhan} />
-            )}
-            {activeSection === "inventory" && (
-              <InventorySection
-                khoHangs={khoHangs}
-                onNewKho={() => setShowNewKho(true)}
-                onEditKho={setEditKho}
-                onDeleteKho={handleDeleteKho}
-              />
-            )}
-            {activeSection === "reports" && (
-              <ReportsSection donHangs={donHangs} />
+        )}
+
+        {/* Inventory */}
+        {section === "inventory" && (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 20 }}>
+              <Panel style={{ borderTop: `4px solid ${C.primary}` }}>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>So kho</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: C.primary }}>{Array.from(new Set(khoList.map(k => k.MaKho))).length}</div>
+              </Panel>
+              <Panel style={{ borderTop: `4px solid #7c3aed` }}>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Tong ton kho (kg)</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#7c3aed" }}>{tongTonKho.toLocaleString("vi-VN")}</div>
+              </Panel>
+              <Panel style={{ borderTop: `4px solid #059669` }}>
+                <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>Loai san pham</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#059669" }}>{new Set(khoList.map(k => k.TenSanPham).filter(Boolean)).size}</div>
+              </Panel>
+            </div>
+            {khoLoading && <p style={{ color: "#aaa", padding: "12px 0" }}>Dang tai...</p>}
+            {Array.from(new Set(khoList.map(k => k.MaKho))).map(maKho => {
+              const items = khoList.filter(k => k.MaKho === maKho);
+              const khoInfo = items[0];
+              return (
+                <Panel key={maKho} style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div>
+                      <span style={{ fontWeight: 800, fontSize: 15, color: C.dark }}>🏪 {khoInfo?.TenKho}</span>
+                      {khoInfo?.DiaChi && <span style={{ fontSize: 11, color: "#888", marginLeft: 10 }}>📍 {khoInfo.DiaChi}</span>}
+                      <span style={{ marginLeft: 10 }}><StatusBadge status={khoInfo?.TrangThai || "hoat_dong"} /></span>
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <ActionBtn onClick={() => { setEditKho(khoInfo); setModal("kho"); }} color={C.primary}>Sua</ActionBtn>
+                      <ActionBtn onClick={() => handleXoaKho(maKho)} color="#dc2626">Xoa</ActionBtn>
+                    </div>
+                  </div>
+                  <StyledTable headers={["San pham", "Don vi", "So luong", "Cap nhat cuoi"]}>
+                    {items.filter(k => k.TenSanPham).map((k, i) => (
+                      <tr key={`${k.MaKho}-${k.MaLo}-${i}`}>
+                        <Td><b>{k.TenSanPham}</b></Td>
+                        <Td style={{ color: "#888" }}>{k.DonViTinh || "--"}</Td>
+                        <Td>
+                          <span style={{ background: (k.SoLuong || 0) > 0 ? C.light : "#fee2e2", color: (k.SoLuong || 0) > 0 ? C.primary : "#dc2626", padding: "3px 10px", borderRadius: 10, fontWeight: 700, fontSize: 13 }}>
+                            {(k.SoLuong || 0).toLocaleString("vi-VN")}
+                          </span>
+                        </Td>
+                        <Td style={{ color: "#aaa", fontSize: 11 }}>{k.CapNhatCuoi ? new Date(k.CapNhatCuoi).toLocaleDateString("vi-VN") : "--"}</Td>
+                      </tr>
+                    ))}
+                    {items.filter(k => k.TenSanPham).length === 0 && (
+                      <tr><td colSpan={4} style={{ textAlign: "center", color: "#aaa", padding: "12px 0", fontSize: 13 }}>Kho trong</td></tr>
+                    )}
+                  </StyledTable>
+                </Panel>
+              );
+            })}
+            {khoList.length === 0 && !khoLoading && (
+              <Panel><p style={{ textAlign: "center", color: "#aaa", padding: "24px 0" }}>Chua co kho nao. Nhan "+ Tao kho moi" de bat dau.</p></Panel>
             )}
           </div>
         )}
-      </div>
 
-      {/* Toast */}
-      {toast && (
-        <div className="toast" style={{ background: toast.type === "success" ? "var(--success)" : "var(--danger)" }}>
-          <span className="u-text-lg">{toast.type === "success" ? "✓" : "✕"}</span>
-          {toast.msg}
-        </div>
-      )}
+        {/* Reports */}
+        {section === "reports" && (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
+              {[
+                { icon: "📋", label: "Tong don hang",   value: `${tongDon} don`,                                 color: C.primary },
+                { icon: "✅", label: "Da nhan",           value: `${daNhan} don`,                                 color: "#059669" },
+                { icon: "⏳", label: "Cho nhan",          value: `${chuaNhan} don`,                               color: "#b45309" },
+                { icon: "❌", label: "Da huy",            value: `${daHuy} don`,                                  color: "#dc2626" },
+                { icon: "💰", label: "Gia tri da nhan",  value: tongGiaTriDaNhan.toLocaleString("vi-VN") + " d", color: "#7c3aed" },
+                { icon: "🏪", label: "Ton kho",           value: `${tongTonKho.toLocaleString("vi-VN")} kg`,      color: "#0891b2" },
+              ].map(c => (
+                <Panel key={c.label} style={{ textAlign: "center", borderLeft: `5px solid ${c.color}` }}>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>{c.icon}</div>
+                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{c.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: c.color }}>{c.value}</div>
+                </Panel>
+              ))}
+            </div>
+            <Panel style={{ marginBottom: 20 }}>
+              <SectionTitle>Thong ke theo dai ly</SectionTitle>
+              <StyledTable headers={["Dai ly", "Tong don", "Da nhan", "Ti le nhan", "Tong gia tri"]}>
+                {Object.entries(daiLyStats).sort((a, b) => b[1].tongGiaTri - a[1].tongGiaTri).map(([tenDaiLy, stats]) => (
+                  <tr key={tenDaiLy}>
+                    <Td><b>{tenDaiLy}</b></Td>
+                    <Td>{stats.tongDon}</Td>
+                    <Td><span style={{ color: "#059669", fontWeight: 700 }}>{stats.daNhan}</span></Td>
+                    <Td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1, height: 6, background: "#f0f4ff", borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${stats.tongDon ? (stats.daNhan / stats.tongDon) * 100 : 0}%`, background: "#059669", borderRadius: 3 }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: "#888", whiteSpace: "nowrap" }}>{stats.tongDon ? Math.round((stats.daNhan / stats.tongDon) * 100) : 0}%</span>
+                      </div>
+                    </Td>
+                    <Td style={{ color: C.primary, fontWeight: 700 }}>{stats.tongGiaTri.toLocaleString("vi-VN")} d</Td>
+                  </tr>
+                ))}
+                {Object.keys(daiLyStats).length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: "center", color: "#aaa", padding: "16px 0" }}>Chua co du lieu</td></tr>
+                )}
+              </StyledTable>
+            </Panel>
+            <Panel>
+              <SectionTitle>Lich su don hang</SectionTitle>
+              <StyledTable headers={["Ma don", "Dai ly", "Tong SL", "Tong gia tri", "Ngay dat", "Trang thai"]}>
+                {apiOrders.map(o => (
+                  <tr key={o.MaDonHang} style={{ cursor: "pointer" }} onClick={() => { setDetailOrder(o); setModal("detail"); }}>
+                    <Td><code style={{ fontSize: 11, color: "#888" }}>#{o.MaDonHang}</code></Td>
+                    <Td>{o.TenDaiLy || "--"}</Td>
+                    <Td>{o.TongSoLuong != null ? o.TongSoLuong.toLocaleString("vi-VN") : "--"}</Td>
+                    <Td style={{ color: C.primary, fontWeight: 700 }}>{o.TongGiaTri ? o.TongGiaTri.toLocaleString("vi-VN") + " d" : "--"}</Td>
+                    <Td style={{ color: "#aaa", fontSize: 11 }}>{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "--"}</Td>
+                    <Td><StatusBadge status={o.TrangThai} /></Td>
+                  </tr>
+                ))}
+              </StyledTable>
+              {apiOrders.length === 0 && <p style={{ textAlign: "center", color: "#aaa", padding: "16px 0" }}>Chua co du lieu</p>}
+            </Panel>
+          </div>
+        )}
+      </main>
 
       {/* Modals */}
-      {viewOrder && <OrderDetailModal donHang={viewOrder} onClose={() => setViewOrder(null)} />}
-      {showNewOrder && <OrderModal maSieuThi={maSieuThi} onClose={() => setShowNewOrder(false)} onSaved={() => { loadData(); showToast("Tạo đơn hàng thành công!"); }} />}
-      {editOrder && <EditOrderModal donHang={editOrder} onClose={() => setEditOrder(null)} onSaved={() => { loadData(); showToast("Cập nhật đơn hàng thành công!"); }} />}
-      {showNewKho && <KhoModal kho={null} maSieuThi={maSieuThi} onClose={() => setShowNewKho(false)} onSaved={() => { loadData(); showToast("Tạo kho thành công!"); }} />}
-      {editKho && <KhoModal kho={editKho} maSieuThi={maSieuThi} onClose={() => setEditKho(null)} onSaved={() => { loadData(); showToast("Cập nhật kho thành công!"); }} />}
-      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} onEdit={() => { setShowProfile(false); setShowEditProfile(true); }} />}
-      {showEditProfile && <EditProfileModal onClose={() => setShowEditProfile(false)} onSaved={() => { showToast("Cập nhật thông tin thành công!"); }} />}
-      
-      <style>{`
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      `}</style>
+      {modal === "order" && authUser?.maDoiTuong && (
+        <OrderModal maSieuThi={authUser.maDoiTuong} onClose={() => setModal(null)} onSaved={loadApiOrders} />
+      )}
+      {modal === "editOrder" && editOrder && (
+        <EditOrderModal order={editOrder} onClose={() => { setModal(null); setEditOrder(null); }} onSaved={loadApiOrders} />
+      )}
+      {modal === "detail" && detailOrder && (
+        <OrderDetailModal order={detailOrder} onClose={() => { setModal(null); setDetailOrder(null); }} />
+      )}
+      {modal === "kho" && authUser?.maDoiTuong && (
+        <KhoModal kho={editKho} maSieuThi={authUser.maDoiTuong} onClose={() => { setModal(null); setEditKho(undefined); }} onSaved={loadKho} />
+      )}
+      {modal === "profile" && (
+        <Modal title="Thong tin ca nhan" onClose={() => setModal(null)}>
+          {[["Ho ten", fullName], ["Vai tro", "Sieu thi"], ["Email", authUser?.email || "--"], ["So dien thoai", authUser?.soDienThoai || "--"], ["Dia chi", authUser?.diaChi || "--"]].map(([k, v]) => (
+            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f0f0f0" }}>
+              <span style={{ fontSize: 12, color: "#888", fontWeight: 600 }}>{k}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#222" }}>{v}</span>
+            </div>
+          ))}
+          <button onClick={() => setModal("edit-profile")} style={{ width: "100%", marginTop: 16, padding: "10px", background: `linear-gradient(135deg,${C.primary},#1d4ed8)`, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Sua thong tin</button>
+        </Modal>
+      )}
+      {modal === "edit-profile" && (
+        <Modal title="Sua thong tin ca nhan" onClose={() => setModal(null)}>
+          {profileErr && <div style={{ padding: "8px 12px", background: "#fff0f0", color: "#c62828", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>{profileErr}</div>}
+          <FormField label="Ho ten *"><input style={inp} value={profileForm.hoTen} onChange={e => setProfileForm(p => ({ ...p, hoTen: e.target.value }))} /></FormField>
+          <FormField label="So dien thoai"><input style={inp} value={profileForm.sdt} onChange={e => setProfileForm(p => ({ ...p, sdt: e.target.value }))} /></FormField>
+          <FormField label="Email"><input style={inp} type="email" value={profileForm.email} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))} /></FormField>
+          <FormField label="Dia chi"><input style={inp} value={profileForm.diaChi} onChange={e => setProfileForm(p => ({ ...p, diaChi: e.target.value }))} /></FormField>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+            <button onClick={() => setModal(null)} style={{ padding: "9px 18px", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>Huy</button>
+            <PrimaryBtn onClick={saveProfile} disabled={profileLoading}>{profileLoading ? "Dang luu..." : "Luu"}</PrimaryBtn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
