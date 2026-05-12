@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, ReactNode, CSSProperties } from "react";
+import React, { useState, useEffect, ReactNode, CSSProperties } from "react";
 import "./NongDanApp.css";
 import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 
@@ -316,14 +316,13 @@ function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]
       {orders.length === 0 ? (
         <p className="empty-msg">Chưa có đơn hàng nào</p>
       ) : (
-        <StyledTable headers={["Mã đơn", "Sản phẩm", "Số lượng", "Đại lý", "Ngày đặt", "Trạng thái", "Hành động"]}>
+        <StyledTable headers={["Mã đơn", "Đại lý", "Số lượng", "Ngày đặt", "Trạng thái", "Hành động"]}>
           {orders.map(o => (
             <tr key={o.id}>
               <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
-              <Td><b>{o.product || "—"}</b></Td>
+              <Td><b>{o.agentName || "—"}</b></Td>
               <Td>{o.quantity > 0 ? `${o.quantity} kg` : "—"}</Td>
-              <Td>{o.agentName}</Td>
-              <Td>{o.date}</Td>
+              <Td className="u-text-muted u-text-sm">{o.date}</Td>
               <Td><StatusBadge status={o.status} /></Td>
               <Td>
                 <div className="u-flex u-gap-2">
@@ -426,21 +425,103 @@ function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) 
 }
 
 function ReportsSection({ farms, batches, orders }: { farms: Farm[]; batches: Batch[]; orders: Order[] }) {
-  const shipped = orders.filter(o => o.status === "hoan_thanh").reduce((s, o) => s + o.quantity, 0);
-  const cards = [
-    { icon: "📦", label: "Tổng lô sản phẩm",  value: `${batches.length} lô`, color: "#16a34a" },
-    { icon: "🚚", label: "Đã xuất hàng",       value: `${shipped} kg`,        color: "#7c3aed" },
-    { icon: "🏡", label: "Số trang trại",       value: farms.length,           color: "#d97706" },
-  ];
+  const tongLo = batches.length;
+  const tongSL = batches.reduce((s, b) => s + b.soLuongBanDau, 0);
+  const tongDon = orders.length;
+  const daNhan = orders.filter(o => o.status === "da_nhan" || o.status === "accepted").length;
+  const hoanThanh = orders.filter(o => o.status === "hoan_thanh" || o.status === "shipped").length;
+  const daHuy = orders.filter(o => o.status === "da_huy").length;
+  const shipped = orders.filter(o => o.status === "hoan_thanh" || o.status === "shipped").reduce((s, o) => s + o.quantity, 0);
+  const tongGiaTri = orders.filter(o => o.tongGiaTri).reduce((s, o) => s + (o.tongGiaTri || 0), 0);
+  const canhBao = batches.filter(b => daysUntil(b.expiry) <= 14).length;
+
+  // Thống kê theo trang trại
+  const farmStats = farms.map(f => {
+    const farmBatches = batches.filter(b => b.farmId === f.id);
+    const farmOrders = orders.filter(o => farmBatches.some(b => b.id === o.batchId));
+    const slBanDau = farmBatches.reduce((s, b) => s + b.soLuongBanDau, 0);
+    const slHienTai = farmBatches.reduce((s, b) => s + b.soLuongHienTai, 0);
+    return { name: f.name, loSP: farmBatches.length, slBanDau, slHienTai, donHang: farmOrders.length, cert: f.cert || "—" };
+  });
+
   return (
-    <div className="u-grid u-grid-cards u-gap-4">
-      {cards.map(c => (
-        <Panel key={c.label} className="u-text-center" style={{ borderTop: `4px solid ${c.color}` }}>
-          <div className="u-text-2xl u-mb-3">{c.icon}</div>
-          <div className="u-text-sm u-text-muted u-mb-2 u-font-bold" style={{ textTransform: "uppercase" }}>{c.label}</div>
-          <div className="u-text-xl u-font-black" style={{ color: c.color }}>{c.value}</div>
-        </Panel>
-      ))}
+    <div className="u-fade-in">
+      <div className="stat-grid">
+        {[
+          { icon: "🌿", label: "Trang trại",        value: farms.length,                             color: "#16a34a" },
+          { icon: "📦", label: "Tổng lô sản phẩm",  value: `${tongLo} lô`,                          color: "#2563eb" },
+          { icon: "📊", label: "Tổng sản lượng",     value: `${tongSL.toLocaleString("vi-VN")} kg`,  color: "#7c3aed" },
+          { icon: "📋", label: "Tổng đơn hàng",      value: `${tongDon} đơn`,                        color: "#d97706" },
+          { icon: "🚚", label: "Đã xuất hàng",       value: `${shipped.toLocaleString("vi-VN")} kg`, color: "#059669" },
+          { icon: "💰", label: "Tổng giá trị",       value: `${tongGiaTri.toLocaleString("vi-VN")} đ`, color: "#0891b2" },
+        ].map(c => (
+          <div key={c.label} className="stat-card" style={{ "--accent": c.color } as any}>
+            <div className="stat-icon">{c.icon}</div>
+            <div>
+              <div className="stat-value" style={{ fontSize: 20 }}>{c.value}</div>
+              <div className="stat-label">{c.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Panel className="u-mb-5">
+        <div className="panel-title">Thống kê theo trang trại</div>
+        <StyledTable headers={["Trang trại", "Số lô", "Sản lượng (kg)", "Tồn kho (kg)", "Đơn hàng", "Chứng nhận"]}>
+          {farmStats.map(f => (
+            <tr key={f.name}>
+              <Td><b>{f.name}</b></Td>
+              <Td>{f.loSP}</Td>
+              <Td>{f.slBanDau.toLocaleString("vi-VN")}</Td>
+              <Td>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ flex: 1, height: 6, background: "#f0f4ff", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${f.slBanDau ? (f.slHienTai / f.slBanDau) * 100 : 0}%`, background: "var(--primary)", borderRadius: 3 }} />
+                  </div>
+                  <span className="u-text-sm u-text-muted" style={{ whiteSpace: "nowrap" }}>{f.slHienTai.toLocaleString("vi-VN")}</span>
+                </div>
+              </Td>
+              <Td>{f.donHang}</Td>
+              <Td><span className="badge" style={{ background: "rgba(21,128,61,0.1)", color: "#15803d" }}>{f.cert}</span></Td>
+            </tr>
+          ))}
+          {farmStats.length === 0 && (
+            <tr><td colSpan={6} className="empty-msg">Chưa có dữ liệu</td></tr>
+          )}
+        </StyledTable>
+      </Panel>
+
+      <Panel>
+        <div className="panel-title">Tổng hợp đơn hàng</div>
+        <div className="u-flex u-gap-5 u-mb-4" style={{ flexWrap: "wrap" }}>
+          {[
+            { label: "Đã nhận", value: daNhan, color: "#059669" },
+            { label: "Hoàn thành", value: hoanThanh, color: "#15803d" },
+            { label: "Đã hủy", value: daHuy, color: "#dc2626" },
+            { label: "Cảnh báo HSD", value: canhBao, color: "#d97706" },
+          ].map(s => (
+            <div key={s.label} className="u-flex u-items-center u-gap-2">
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color }} />
+              <span className="u-text-sm u-text-muted">{s.label}:</span>
+              <span className="u-font-bold" style={{ color: s.color }}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+        <StyledTable headers={["Mã đơn", "Sản phẩm", "Số lượng", "Giá trị", "Đại lý", "Ngày", "Trạng thái"]}>
+          {orders.map(o => (
+            <tr key={o.id}>
+              <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
+              <Td><b>{o.product}</b></Td>
+              <Td>{o.quantity.toLocaleString("vi-VN")} kg</Td>
+              <Td className="u-text-primary u-font-bold">{o.tongGiaTri ? o.tongGiaTri.toLocaleString("vi-VN") + " đ" : "—"}</Td>
+              <Td>{o.agentName || "—"}</Td>
+              <Td className="u-text-muted u-text-sm">{o.date ? new Date(o.date).toLocaleDateString("vi-VN") : "—"}</Td>
+              <Td><StatusBadge status={o.status} /></Td>
+            </tr>
+          ))}
+        </StyledTable>
+        {orders.length === 0 && <p className="empty-msg">Chưa có dữ liệu</p>}
+      </Panel>
     </div>
   );
 }

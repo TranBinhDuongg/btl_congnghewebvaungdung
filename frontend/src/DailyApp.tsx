@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, ReactNode } from "react";
+import React, { useState, useEffect, useCallback, ReactNode } from "react";
 import { getCurrentUser, clearCurrentUser, apiUpdateProfile } from "./AuthHelper.ts";
 import "./DailyApp.css";
 
@@ -107,6 +107,10 @@ function StyledTable({ headers, children }: { headers: string[]; children: React
       </table>
     </div>
   );
+}
+
+function Td({ children, className = "" }: { children?: ReactNode; className?: string }) {
+  return <td className={className}>{children}</td>;
 }
 
 function ActionBtn({ children, onClick, variant = "primary" }: { children: ReactNode; onClick: () => void; variant?: "primary" | "danger" | "success" | "warning" | "info" }) {
@@ -478,15 +482,116 @@ function ReportsSection({ receipts, retail, inventory, quality }: {
 }) {
   const totalStock = inventory.reduce((s, b) => s + b.soLuong, 0);
   const shipped = retail.filter(r => r.status === "shipped" || r.status === "hoan_thanh").length;
+  const chuaNhan = retail.filter(r => r.status === "chua_nhan" || r.status === "pending").length;
+  const daHuy = retail.filter(r => r.status === "da_huy").length;
   const passed = quality.filter(q => q.ketQua === "dat" || q.ketQua === "A").length;
+  const failed = quality.filter(q => q.ketQua === "khong_dat").length;
   const passRate = quality.length ? Math.round((passed / quality.length) * 100) : 0;
-  
+
+  // Thống kê theo nhà cung cấp (nông dân)
+  const supplierStats = receipts.reduce((acc, r) => {
+    const key = r.tenNong || "Không rõ";
+    if (!acc[key]) acc[key] = { tongPhieu: 0, tongSL: 0 };
+    acc[key].tongPhieu++;
+    acc[key].tongSL += r.soLuong || 0;
+    return acc;
+  }, {} as Record<string, { tongPhieu: number; tongSL: number }>);
+
   return (
-    <div className="stat-grid u-fade-in">
-      <StatCard icon="📥" label="Tổng phiếu nhập" value={receipts.length} accent="var(--success)" />
-      <StatCard icon="🚚" label="Đã xuất hàng" value={shipped} accent="#7c3aed" />
-      <StatCard icon="📦" label="Tổng tồn kho" value={`${totalStock} kg`} accent="var(--primary)" />
-      <StatCard icon="✅" label="Tỷ lệ đạt chất lượng" value={`${passRate}%`} accent="var(--success)" />
+    <div className="u-fade-in">
+      <div className="stat-grid">
+        {[
+          { icon: "📥", label: "Tổng phiếu nhập",     value: receipts.length,                            color: "var(--success)" },
+          { icon: "📦", label: "Tổng tồn kho",         value: `${totalStock.toLocaleString("vi-VN")} kg`, color: "var(--primary)" },
+          { icon: "🚚", label: "Đã xuất hàng",          value: `${shipped} đơn`,                           color: "#7c3aed" },
+          { icon: "⏳", label: "Chờ xác nhận",          value: `${chuaNhan} đơn`,                          color: "#b45309" },
+          { icon: "✅", label: "Tỷ lệ đạt CL",          value: `${passRate}%`,                             color: "#059669" },
+          { icon: "❌", label: "Đã hủy",                 value: `${daHuy} đơn`,                             color: "#dc2626" },
+        ].map(c => (
+          <div key={c.label} className="stat-card" style={{ "--accent": c.color } as any}>
+            <div className="stat-icon">{c.icon}</div>
+            <div>
+              <div className="stat-value" style={{ fontSize: 20 }}>{c.value}</div>
+              <div className="stat-label">{c.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Panel className="u-mb-5">
+        <div className="panel-title">Thống kê theo nhà cung cấp</div>
+        <StyledTable headers={["Nông dân", "Số phiếu nhập", "Tổng SL (kg)", "Tỷ trọng"]}>
+          {Object.entries(supplierStats).sort((a, b) => b[1].tongSL - a[1].tongSL).map(([name, stats]) => {
+            const totalSL = Object.values(supplierStats).reduce((s, v) => s + v.tongSL, 0);
+            const pct = totalSL ? Math.round((stats.tongSL / totalSL) * 100) : 0;
+            return (
+              <tr key={name}>
+                <Td><b>{name}</b></Td>
+                <Td>{stats.tongPhieu}</Td>
+                <Td className="u-text-primary u-font-bold">{stats.tongSL.toLocaleString("vi-VN")}</Td>
+                <Td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ flex: 1, height: 6, background: "#f0f4ff", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: "var(--primary)", borderRadius: 3 }} />
+                    </div>
+                    <span className="u-text-sm u-text-muted" style={{ whiteSpace: "nowrap" }}>{pct}%</span>
+                  </div>
+                </Td>
+              </tr>
+            );
+          })}
+          {Object.keys(supplierStats).length === 0 && (
+            <tr><td colSpan={4} className="empty-msg">Chưa có dữ liệu</td></tr>
+          )}
+        </StyledTable>
+      </Panel>
+
+      <Panel className="u-mb-5">
+        <div className="panel-title">Kiểm định chất lượng</div>
+        <div className="u-flex u-gap-5 u-mb-4" style={{ flexWrap: "wrap" }}>
+          {[
+            { label: "Tổng kiểm định", value: quality.length, color: "#2563eb" },
+            { label: "Đạt", value: passed, color: "#059669" },
+            { label: "Không đạt", value: failed, color: "#dc2626" },
+          ].map(s => (
+            <div key={s.label} className="u-flex u-items-center u-gap-2">
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color }} />
+              <span className="u-text-sm u-text-muted">{s.label}:</span>
+              <span className="u-font-bold" style={{ color: s.color }}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+        <StyledTable headers={["Mã KĐ", "Sản phẩm", "Ngày kiểm", "Người kiểm", "Kết quả", "Ghi chú"]}>
+          {quality.slice(0, 10).map(q => (
+            <tr key={q.maKiemDinh}>
+              <Td><code className="u-text-sm u-text-primary u-font-bold">#{q.maKiemDinh}</code></Td>
+              <Td><b>{q.tenSanPham || `Lô #${q.maLo}`}</b></Td>
+              <Td className="u-text-muted u-text-sm">{q.ngayKiem ? new Date(q.ngayKiem).toLocaleDateString("vi-VN") : "—"}</Td>
+              <Td>{q.nguoiKiem || "—"}</Td>
+              <Td><StatusBadge status={q.ketQua} /></Td>
+              <Td className="u-text-muted u-text-sm">{q.ghiChu || "—"}</Td>
+            </tr>
+          ))}
+        </StyledTable>
+        {quality.length === 0 && <p className="empty-msg">Chưa có dữ liệu kiểm định</p>}
+      </Panel>
+
+      <Panel>
+        <div className="panel-title">Lịch sử đơn hàng bán lẻ</div>
+        <StyledTable headers={["Mã đơn", "Sản phẩm", "Số lượng", "Siêu thị", "Ngày tạo", "Trạng thái"]}>
+          {retail.map(r => (
+            <tr key={r.maPhieu}>
+              <Td><code className="u-text-sm u-text-primary u-font-bold">#{r.maPhieu}</code></Td>
+              <Td><b>{r.sanPham}</b></Td>
+              <Td>{r.soLuong.toLocaleString("vi-VN")} kg</Td>
+              <Td>{r.sieu_thi || "—"}</Td>
+              <Td className="u-text-muted u-text-sm">{r.ngayTao ? new Date(r.ngayTao).toLocaleDateString("vi-VN") : "—"}</Td>
+              <Td><StatusBadge status={r.status} /></Td>
+            </tr>
+          ))}
+        </StyledTable>
+        {retail.length === 0 && <p className="empty-msg">Chưa có dữ liệu</p>}
+      </Panel>
     </div>
   );
 }
