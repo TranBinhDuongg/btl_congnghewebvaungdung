@@ -231,8 +231,8 @@ function Dashboard({ nongDan, daily, sieuThi, trangTrai, loNongSan, donHangDL, d
                   <span className="u-font-bold u-text-md" style={{ color }}>{emoji} {label}</span>
                   <span className="u-text-sm u-text-muted">{count} ({pct}%)</span>
                 </div>
-                <div style={{ height: 8, background: "#f3f4f6", borderRadius: 999 }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 999, transition: "width 0.4s" }} />
+                <div className="progress-bar-track">
+                  <div className="progress-bar-fill" style={{ width: `${pct}%`, background: color }} />
                 </div>
               </div>
             );
@@ -463,7 +463,7 @@ function LogsSection({ logs, onClear }: { logs: Log[]; onClear: () => void }) {
     <div className="u-fade-in">
       <div className="u-flex u-items-center u-justify-between u-mb-6">
         <div><h1 className="page-title">🔍 Audit / Log</h1></div>
-        <button className="btn" onClick={onClear} style={{ background: "#fef2f2", color: "#dc2626", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, cursor: "pointer" }}>
+        <button className="btn btn-danger-outline" onClick={onClear}>
           🗑 Xóa log
         </button>
       </div>
@@ -504,8 +504,8 @@ function ProfileSection({ authUser, onSave }: {
     <div className="u-fade-in" style={{ maxWidth: 560 }}>
       <div className="u-mb-6"><h1 className="page-title">👤 Hồ sơ Admin</h1></div>
       <Panel>
-        <div className="u-flex u-items-center u-gap-5 u-mb-6" style={{ paddingBottom: 20, borderBottom: "1px solid #f1f5f9" }}>
-          <div className="avatar" style={{ width: 56, height: 56, fontSize: 24, background: "linear-gradient(135deg,#7c3aed,#4f46e5)" }}>🛡️</div>
+        <div className="profile-header">
+          <div className="profile-avatar">🛡️</div>
           <div>
             <div className="u-font-black u-text-lg u-text-dark">{authUser?.tenHienThi || "Admin"}</div>
             <span className="badge" style={{ color: "#7c3aed", background: "#ede9fe" }}>🛡️ Quản trị viên</span>
@@ -807,7 +807,7 @@ export default function AdminApp() {
           {NAV_GROUPS.map((g, gi) => (
             <div key={gi}>
               {g.group && (
-                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.8px", padding: "14px 16px 6px" }}>
+                <div className="nav-group-label">
                   {g.group}
                 </div>
               )}
@@ -820,13 +820,11 @@ export default function AdminApp() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button onClick={() => setSection("profile")} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 10, marginBottom: 12, width: "100%", cursor: "pointer", transition: "background 0.15s", fontFamily: "inherit" }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}>
+          <button className="profile-btn" onClick={() => setSection("profile")}>
             <div className="avatar">🛡️</div>
             <div style={{ textAlign: "left" }}>
-              <div style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{authUser?.tenHienThi || "Admin"}</div>
-              <div style={{ color: "#a78bfa", fontSize: 11 }}>Quản trị viên</div>
+              <div className="u-font-bold u-text-sm">{authUser?.tenHienThi || "Admin"}</div>
+              <div className="u-text-sm" style={{ color: '#a78bfa' }}>Quản trị viên</div>
             </div>
           </button>
           <button className="logout-btn" onClick={() => { clearCurrentUser(); window.location.href = "/login"; }}>
@@ -837,7 +835,7 @@ export default function AdminApp() {
 
       {/* Main */}
       <main className="main-content">
-        {loading && <div style={{ position: "fixed", top: 16, right: 16, background: "#1a1a2e", color: "#a78bfa", padding: "8px 18px", borderRadius: 10, fontSize: 13, zIndex: 9999 }}>⏳ Đang tải...</div>}
+        {loading && <div className="loading-indicator">⏳ Đang tải...</div>}
 
         {section === "dashboard" && (
           <Dashboard nongDan={nongDanList} daily={dailyList} sieuThi={sieuThiList} trangTrai={trangTraiList}
