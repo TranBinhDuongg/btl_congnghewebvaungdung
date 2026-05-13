@@ -62,6 +62,7 @@ app.use('/api/kiem-dinh',        require('./src/routes/kiemdinhh.routes'));
 app.use('/api/sieuthi',          require('./src/routes/sieuthi.routes'));
 app.use('/api/KhoHang',          require('./src/routes/khohang.routes'));
 app.use('/api/xuat-nhap-kho',    require('./src/routes/xuatnhap_kho.routes'));
+app.use('/api/truy-xuat',       require('./src/routes/truyxuat.routes'));
 
 // Serve React frontend
 const frontendBuild = path.join(__dirname, '../frontend/build');

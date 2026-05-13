@@ -90,17 +90,19 @@ function FormField({ label, children }: { label: string; children: ReactNode }) 
 }
 
 // Nav
-type Section = "dashboard" | "orders" | "receive" | "inventory" | "reports";
+type Section = "dashboard" | "orders" | "receive" | "inventory" | "reports" | "traceability";
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: "dashboard", label: "Bảng điều khiển",  icon: "🏠" },
   { id: "orders",    label: "Quản lý đơn hàng", icon: "📋" },
   { id: "receive",   label: "Nhận hàng",         icon: "📥" },
   { id: "inventory", label: "Quản lý kho",       icon: "🏪" },
+  { id: "traceability", label: "Truy xuất nguồn gốc", icon: "🔍" },
   { id: "reports",   label: "Báo cáo thống kê",  icon: "📊" },
 ];
 const PAGE_TITLES: Record<Section, string> = {
   dashboard: "Bảng điều khiển", orders: "Quản lý đơn hàng",
-  receive: "Nhận hàng từ Đại lý", inventory: "Quản lý kho hàng", reports: "Báo cáo thống kê",
+  receive: "Nhận hàng từ Đại lý", inventory: "Quản lý kho hàng",
+  traceability: "Truy xuất nguồn gốc", reports: "Báo cáo thống kê",
 };
 
 // Order Detail Modal - XEM CHI TIET DON HANG
@@ -378,6 +380,29 @@ export default function SieuThiApp() {
   const [profileForm, setProfileForm] = useState({ hoTen: fullName, sdt: authUser?.soDienThoai || "", email: authUser?.email || "", diaChi: authUser?.diaChi || "" });
   const [profileErr, setProfileErr] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
+
+  // Truy xuat nguon goc state
+  const [txSearch, setTxSearch] = useState("");
+  const [txResults, setTxResults] = useState<{MaLo:number;TenSanPham:string;TenTrangTrai:string;TenNongDan:string;NgayThuHoach?:string;TrangThai:string}[]>([]);
+  const [txShowResults, setTxShowResults] = useState(false);
+  const [txData, setTxData] = useState<any>(null);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txErr, setTxErr] = useState("");
+
+  const txDoSearch = useCallback(async (kw: string) => {
+    if (!kw.trim()) { setTxResults([]); return; }
+    try { const d = await apiFetch(`/api/truy-xuat/tim-kiem?keyword=${encodeURIComponent(kw)}`); setTxResults(Array.isArray(d) ? d : []); setTxShowResults(true); } catch { setTxResults([]); }
+  }, []);
+
+  useEffect(() => { if (section !== "traceability") return; const t = setTimeout(() => txDoSearch(txSearch), 400); return () => clearTimeout(t); }, [txSearch, txDoSearch, section]);
+
+  const txLoadTrace = async (maLo: number) => {
+    setTxLoading(true); setTxErr(""); setTxData(null); setTxShowResults(false); setTxSearch(`Lô #${maLo}`);
+    try { setTxData(await apiFetch(`/api/truy-xuat/${maLo}`)); } catch (e: unknown) { setTxErr(e instanceof Error ? e.message : "Lỗi truy xuất"); }
+    finally { setTxLoading(false); }
+  };
+
+  const txFmtDate = (d?: string) => d ? new Date(d).toLocaleDateString("vi-VN") : "--";
 
   const loadApiOrders = useCallback(async () => {
     if (!authUser?.maDoiTuong) return;
@@ -766,6 +791,199 @@ export default function SieuThiApp() {
               </StyledTable>
               {apiOrders.length === 0 && <p className="empty-msg">Chưa có dữ liệu</p>}
             </Panel>
+          </div>
+        )}
+
+        {/* Traceability */}
+        {section === "traceability" && (
+          <div className="u-fade-in">
+            <Panel className="u-mb-4" style={{ position: "relative" }}>
+              <SectionTitle>Tìm kiếm lô nông sản</SectionTitle>
+              <div className="u-flex u-gap-3 u-items-center">
+                <input className="input" style={{ flex: 1 }} placeholder="Nhập mã lô, tên sản phẩm, tên trang trại..."
+                  value={txSearch} onChange={e => { setTxSearch(e.target.value); setTxData(null); setTxErr(""); }}
+                  onFocus={() => txResults.length > 0 && setTxShowResults(true)}
+                  onKeyDown={e => { if (e.key === "Enter") { const n = parseInt(txSearch.replace(/\D/g, "")); if (n > 0) txLoadTrace(n); } }} />
+                <PrimaryBtn onClick={() => { const n = parseInt(txSearch.replace(/\D/g, "")); if (n > 0) txLoadTrace(n); }} disabled={txLoading}>
+                  {txLoading ? "Đang tìm..." : "🔍 Tra cứu"}
+                </PrimaryBtn>
+              </div>
+              {txShowResults && txResults.length > 0 && (
+                <div style={{ position: "absolute", left: 24, right: 24, top: "100%", zIndex: 10, background: "#fff", borderRadius: 12, boxShadow: "0 10px 25px rgba(0,0,0,0.15)", maxHeight: 320, overflowY: "auto", border: "1px solid #e2e8f0" }}>
+                  {txResults.map(r => (
+                    <div key={r.MaLo} onClick={() => txLoadTrace(r.MaLo)}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", transition: "background 0.15s" }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#f0fdf4")} onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                      <span style={{ fontSize: 20 }}>🌾</span>
+                      <div style={{ flex: 1 }}>
+                        <div className="u-font-bold u-text-sm">{r.TenSanPham} — Lô #{r.MaLo}</div>
+                        <div className="u-text-sm u-text-muted">🏡 {r.TenTrangTrai} • 👨‍🌾 {r.TenNongDan}</div>
+                      </div>
+                      <StatusBadge status={r.TrangThai} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            {txLoading && <p className="empty-msg">⏳ Đang truy xuất nguồn gốc...</p>}
+            {txErr && <div className="error-msg">{txErr}</div>}
+
+            {!txLoading && !txErr && !txData && (
+              <Panel style={{ textAlign: "center", padding: "60px 20px" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+                <div className="u-font-black u-text-lg u-mb-2">Bắt đầu tra cứu</div>
+                <div className="u-text-muted">Nhập mã lô hoặc tên sản phẩm để xem hành trình từ nông trại đến siêu thị</div>
+              </Panel>
+            )}
+
+            {txData && txData.loNongSan && (() => {
+              const lo = txData.loNongSan;
+              return (
+                <>
+                  {/* Product Summary */}
+                  <Panel className="u-mb-4" style={{ borderTop: "4px solid var(--primary)" }}>
+                    <div className="u-flex u-gap-4 u-items-center u-mb-4">
+                      <div style={{ width: 56, height: 56, borderRadius: 12, background: "linear-gradient(135deg,#d1fae5,#a7f3d0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>🌾</div>
+                      <div>
+                        <h3 className="u-font-black u-text-xl" style={{ margin: 0 }}>{lo.TenSanPham}</h3>
+                        <div className="u-flex u-gap-2 u-items-center u-mt-1">
+                          <code style={{ padding: "2px 8px", background: "#dbeafe", color: "#2563eb", borderRadius: 6, fontSize: 12, fontWeight: 700 }}>Lô #{lo.MaLo}</code>
+                          <StatusBadge status={lo.TrangThai} />
+                          {lo.SoChungNhanLo && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>📜 {lo.SoChungNhanLo}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+                      {[
+                        ["Đơn vị", lo.DonViTinh], ["SL ban đầu", `${lo.SoLuongBanDau?.toLocaleString("vi-VN")} ${lo.DonViTinh}`],
+                        ["Ngày thu hoạch", txFmtDate(lo.NgayThuHoach)], ["Hạn sử dụng", txFmtDate(lo.HanSuDung)],
+                        ["Ngày tạo lô", txFmtDate(lo.NgayTao)],
+                        ...(lo.GiaTien != null ? [["Giá tiền", `${lo.GiaTien.toLocaleString("vi-VN")} đ`]] : []),
+                      ].map(([l, v]) => (
+                        <div key={l as string} style={{ padding: "12px 14px", background: "#f8fafc", borderRadius: 10, border: "1px solid #f1f5f9" }}>
+                          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "#64748b", fontWeight: 700, marginBottom: 4 }}>{l}</div>
+                          <div className="u-font-bold">{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+
+                  {/* Timeline */}
+                  <Panel>
+                    <SectionTitle>📍 Hành trình sản phẩm</SectionTitle>
+                    <div className="tx-timeline">
+                      {/* Thu hoạch */}
+                      <div className="tx-step">
+                        <div className="tx-dot" style={{ background: "linear-gradient(135deg,#059669,#047857)" }}>🌱</div>
+                        <div className="tx-card">
+                          <div className="u-flex u-justify-between u-items-center u-mb-3">
+                            <span className="u-font-black">Thu hoạch tại trang trại</span>
+                            <span className="u-text-sm u-text-muted" style={{ background: "#f8fafc", padding: "3px 10px", borderRadius: 99 }}>{txFmtDate(lo.NgayThuHoach)}</span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                            <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>TRANG TRẠI</div><div className="u-font-bold u-text-sm">{lo.TenTrangTrai}</div></div>
+                            <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>ĐỊA CHỈ</div><div className="u-font-bold u-text-sm">{lo.DiaChiTrangTrai || "--"}</div></div>
+                            <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>NÔNG DÂN</div><div className="u-font-bold u-text-sm">{lo.TenNongDan}</div></div>
+                            <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>SỐ LƯỢNG</div><div className="u-font-bold u-text-sm">{lo.SoLuongBanDau?.toLocaleString("vi-VN")} {lo.DonViTinh}</div></div>
+                          </div>
+                          {lo.SoChungNhanTrangTrai && <div style={{ marginTop: 10, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0", fontSize: 13 }}>🏅 Chứng nhận: <b>{lo.SoChungNhanTrangTrai}</b></div>}
+                        </div>
+                      </div>
+
+                      {/* Đại lý thu mua */}
+                      {txData.donHangDaiLy.map((d: any, i: number) => (
+                        <div className="tx-step" key={`dl-${i}`}>
+                          <div className="tx-dot" style={{ background: "linear-gradient(135deg,#2563eb,#1e40af)" }}>📦</div>
+                          <div className="tx-card">
+                            <div className="u-flex u-justify-between u-items-center u-mb-3">
+                              <span className="u-font-black">Đại lý thu mua</span>
+                              <span className="u-text-sm u-text-muted" style={{ background: "#f8fafc", padding: "3px 10px", borderRadius: 99 }}>{txFmtDate(d.NgayDat)}</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>ĐẠI LÝ</div><div className="u-font-bold u-text-sm">{d.TenDaiLy}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>MÃ ĐƠN</div><div className="u-font-bold u-text-sm">#{d.MaDonHang}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>SỐ LƯỢNG</div><div className="u-font-bold u-text-sm">{d.SoLuong?.toLocaleString("vi-VN")} {lo.DonViTinh}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>ĐƠN GIÁ</div><div className="u-font-bold u-text-sm">{d.DonGia?.toLocaleString("vi-VN")} đ</div></div>
+                            </div>
+                            <div className="u-mt-2"><StatusBadge status={d.TrangThai} /></div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Kiểm định */}
+                      {txData.kiemDinh.map((kd: any, i: number) => (
+                        <div className="tx-step" key={`kd-${i}`}>
+                          <div className="tx-dot" style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}>🔬</div>
+                          <div className="tx-card">
+                            <div className="u-flex u-justify-between u-items-center u-mb-3">
+                              <span className="u-font-black">Kiểm định chất lượng</span>
+                              <span className="u-text-sm u-text-muted" style={{ background: "#f8fafc", padding: "3px 10px", borderRadius: 99 }}>{txFmtDate(kd.NgayKiemDinh)}</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>NGƯỜI KIỂM ĐỊNH</div><div className="u-font-bold u-text-sm">{kd.NguoiKiemDinh || "--"}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>ĐƠN VỊ</div><div className="u-font-bold u-text-sm">{kd.TenDaiLy || kd.TenSieuThi || "--"}</div></div>
+                              {kd.GhiChu && <div style={{ gridColumn: "1/3" }}><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>GHI CHÚ</div><div className="u-font-bold u-text-sm">{kd.GhiChu}</div></div>}
+                            </div>
+                            <div className="u-mt-2">
+                              <span className="badge" style={{ background: kd.KetQua === "dat" ? "#d1fae5" : "#fee2e2", color: kd.KetQua === "dat" ? "#047857" : "#dc2626" }}>
+                                {kd.KetQua === "dat" ? "✅ Đạt chuẩn" : kd.KetQua === "khong_dat" ? "❌ Không đạt" : kd.KetQua}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Siêu thị */}
+                      {txData.donHangSieuThi.map((d: any, i: number) => (
+                        <div className="tx-step" key={`st-${i}`}>
+                          <div className="tx-dot" style={{ background: "linear-gradient(135deg,#e11d48,#be123c)" }}>🏪</div>
+                          <div className="tx-card">
+                            <div className="u-flex u-justify-between u-items-center u-mb-3">
+                              <span className="u-font-black">Phân phối đến siêu thị</span>
+                              <span className="u-text-sm u-text-muted" style={{ background: "#f8fafc", padding: "3px 10px", borderRadius: 99 }}>{txFmtDate(d.NgayDat)}</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>SIÊU THỊ</div><div className="u-font-bold u-text-sm">{d.TenSieuThi}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>TỪ ĐẠI LÝ</div><div className="u-font-bold u-text-sm">{d.TenDaiLy}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>SỐ LƯỢNG</div><div className="u-font-bold u-text-sm">{d.SoLuong?.toLocaleString("vi-VN")} {lo.DonViTinh}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>ĐƠN GIÁ</div><div className="u-font-bold u-text-sm">{d.DonGia?.toLocaleString("vi-VN")} đ</div></div>
+                            </div>
+                            <div className="u-mt-2"><StatusBadge status={d.TrangThai} /></div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Kho hiện tại */}
+                      {txData.viTriKho.map((k: any, i: number) => (
+                        <div className="tx-step" key={`kho-${i}`}>
+                          <div className="tx-dot" style={{ background: "linear-gradient(135deg,#0891b2,#0e7490)" }}>🏠</div>
+                          <div className="tx-card">
+                            <div className="u-flex u-justify-between u-items-center u-mb-3">
+                              <span className="u-font-black">Lưu kho hiện tại</span>
+                              <span className="u-text-sm u-text-muted" style={{ background: "#f8fafc", padding: "3px 10px", borderRadius: 99 }}>{txFmtDate(k.CapNhatCuoi)}</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>TÊN KHO</div><div className="u-font-bold u-text-sm">{k.TenKho}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>LOẠI KHO</div><div className="u-font-bold u-text-sm">{k.LoaiKho === "daily" ? "Kho đại lý" : "Kho siêu thị"}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>TỒN KHO</div><div className="u-font-bold u-text-sm">{k.SoLuong?.toLocaleString("vi-VN")} {lo.DonViTinh}</div></div>
+                              <div><div className="u-text-sm u-text-muted" style={{ fontSize: 11 }}>ĐỊA CHỈ</div><div className="u-font-bold u-text-sm">{k.DiaChiKho || "--"}</div></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {txData.donHangDaiLy.length === 0 && txData.donHangSieuThi.length === 0 && txData.kiemDinh.length === 0 && txData.viTriKho.length === 0 && (
+                        <div className="tx-step">
+                          <div className="tx-dot" style={{ background: "#94a3b8" }}>📍</div>
+                          <div className="tx-card" style={{ textAlign: "center", color: "#64748b" }}>Lô hàng này chỉ có thông tin thu hoạch. Chưa có giao dịch nào.</div>
+                        </div>
+                      )}
+                    </div>
+                  </Panel>
+                </>
+              );
+            })()}
           </div>
         )}
       </main>

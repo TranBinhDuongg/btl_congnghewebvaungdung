@@ -7,6 +7,7 @@ import DailyApp from './DailyApp.tsx';
 import SieuThiApp from './SieuThiApp.tsx';
 
 import AdminApp from './AdminApp.tsx';
+import TruyXuatApp from './TruyXuatApp.tsx';
 
 export default function App() {
   const path = window.location.pathname;
@@ -17,5 +18,6 @@ export default function App() {
   if (path === '/daily')           return <DailyApp />;
   if (path === '/sieuthi')         return <SieuThiApp />;
   if (path === '/admin')           return <AdminApp />;
+  if (path === '/truy-xuat')       return <TruyXuatApp />;
   return <AgriChainLanding />;
 }
