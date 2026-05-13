@@ -289,6 +289,7 @@ router.put('/donhang/:id/trang-thai', dhCtrl.updateTrangThai);
 router.delete('/donhang/:id', dhCtrl.deleteDonHang);
 router.get('/donhang/:id/chi-tiet', dhCtrl.getChiTiet);
 router.put('/donhang/:id/ghi-chu', dhCtrl.updateGhiChu);
+router.get('/tonkho-daily/:maDaiLy', dhCtrl.getTonKhoDaiLy);
 
 /**
  * @swagger

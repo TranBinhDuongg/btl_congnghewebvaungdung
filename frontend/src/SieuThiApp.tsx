@@ -90,18 +90,17 @@ function FormField({ label, children }: { label: string; children: ReactNode }) 
 }
 
 // Nav
-type Section = "dashboard" | "orders" | "receive" | "inventory" | "reports" | "traceability";
+type Section = "dashboard" | "orders" | "inventory" | "reports" | "traceability";
 const NAV: { id: Section; label: string; icon: string }[] = [
   { id: "dashboard", label: "Bảng điều khiển",  icon: "🏠" },
   { id: "orders",    label: "Quản lý đơn hàng", icon: "📋" },
-  { id: "receive",   label: "Nhận hàng",         icon: "📥" },
   { id: "inventory", label: "Quản lý kho",       icon: "🏪" },
   { id: "traceability", label: "Truy xuất nguồn gốc", icon: "🔍" },
   { id: "reports",   label: "Báo cáo thống kê",  icon: "📊" },
 ];
 const PAGE_TITLES: Record<Section, string> = {
   dashboard: "Bảng điều khiển", orders: "Quản lý đơn hàng",
-  receive: "Nhận hàng từ Đại lý", inventory: "Quản lý kho hàng",
+  inventory: "Quản lý kho hàng",
   traceability: "Truy xuất nguồn gốc", reports: "Báo cáo thống kê",
 };
 
@@ -188,11 +187,11 @@ function KhoModal({ kho, maSieuThi, onClose, onSaved }: { kho?: ApiKho; maSieuTh
   );
 }
 
-// Order Modal - TAO DON HANG
+// Order Modal - TAO DON HANG (giống DaiLyApp)
 function OrderModal({ onClose, onSaved, maSieuThi }: { onClose: () => void; onSaved: () => void; maSieuThi: number; }) {
   const [daiLys, setDaiLys] = useState<{ MaDaiLy: number; TenDaiLy: string }[]>([]);
   const [maDaiLy, setMaDaiLy] = useState("");
-  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuong: number; DonViTinh?: string; GiaTien?: number }[]>([]);
   const [rows, setRows] = useState<ChiTietRow[]>([{ maLo: "", tenLo: "", soLuong: "", donGia: "" }]);
   const [ghiChu, setGhiChu] = useState("");
   const [loading, setLoading] = useState(false);
@@ -206,17 +205,23 @@ function OrderModal({ onClose, onSaved, maSieuThi }: { onClose: () => void; onSa
 
   useEffect(() => {
     if (!maDaiLy) return;
-    apiFetch("/api/lo-nong-san/get-all")
-      .then((d: { MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]) => {
-        setLots(d);
-        setRows([{ maLo: d[0] ? String(d[0].MaLo) : "", tenLo: d[0]?.TenSanPham || "", soLuong: "", donGia: "" }]);
-      }).catch(console.error);
+    apiFetch(`/api/sieuthi/tonkho-daily/${maDaiLy}`)
+      .then((d: any[]) => {
+        const items = Array.isArray(d) ? d.map(x => ({
+          MaLo: x.MaLo, TenSanPham: x.TenSanPham || `Lô #${x.MaLo}`,
+          SoLuong: x.SoLuong || x.SoLuongHienTai || 0,
+          DonViTinh: x.DonViTinh || "kg", GiaTien: x.GiaTien
+        })) : [];
+        setLots(items);
+        const first = items[0];
+        setRows([{ maLo: first ? String(first.MaLo) : "", tenLo: first?.TenSanPham || "", soLuong: "", donGia: first?.GiaTien != null ? String(first.GiaTien) : "" }]);
+      }).catch(() => { setLots([]); setRows([{ maLo: "", tenLo: "", soLuong: "", donGia: "" }]); });
   }, [maDaiLy]);
 
   function setRow(i: number, field: keyof ChiTietRow, val: string) {
     setRows(rs => rs.map((r, idx) => {
       if (idx !== i) return r;
-      if (field === "maLo") { const lot = lots.find(l => String(l.MaLo) === val); return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" }; }
+      if (field === "maLo") { const lot = lots.find(l => String(l.MaLo) === val); return { ...r, maLo: val, tenLo: lot?.TenSanPham || "", donGia: lot?.GiaTien != null ? String(lot.GiaTien) : r.donGia }; }
       return { ...r, [field]: val };
     }));
   }
@@ -236,6 +241,8 @@ function OrderModal({ onClose, onSaved, maSieuThi }: { onClose: () => void; onSa
     finally { setLoading(false); }
   }
 
+  const tongGiaTri = rows.reduce((s, r) => s + (Number(r.soLuong) || 0) * (Number(r.donGia) || 0), 0);
+
   return (
     <Modal title="Tạo đơn đặt hàng" onClose={onClose}>
       {err && <div className="error-msg">{err}</div>}
@@ -247,20 +254,33 @@ function OrderModal({ onClose, onSaved, maSieuThi }: { onClose: () => void; onSa
       <div className="u-mb-4">
         <div className="u-flex u-justify-between u-items-center u-mb-2">
           <label className="form-label">Chi tiết đơn hàng *</label>
-          <button onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: "" }])}
+          <button onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: lots[0]?.GiaTien != null ? String(lots[0].GiaTien) : "" }])}
             className="btn btn-secondary u-text-sm" style={{ padding: '4px 10px' }}>+ Thêm lô</button>
         </div>
+        <div className="u-grid u-gap-2 u-mb-2" style={{ gridTemplateColumns: '2fr 1fr 1fr 32px' }}>
+          {["Sản phẩm (kho đại lý)", "Số lượng", "Đơn giá (đ)", ""].map(h => (
+            <div key={h} className="u-text-sm u-font-bold u-text-muted">{h}</div>
+          ))}
+        </div>
         {rows.map((row, i) => (
-          <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: "2fr 1fr 1fr 28px" }}>
+          <div key={i} className="u-grid u-gap-2 u-mb-2 u-items-center" style={{ gridTemplateColumns: '2fr 1fr 1fr 32px' }}>
             <select className="select" value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
-              {lots.length === 0 ? <option value="">-- Không có lô --</option> : lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuongHienTai} kg)</option>)}
+              {lots.length === 0 ? <option value="">-- Kho trống --</option> : lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuong} {l.DonViTinh})</option>)}
             </select>
             <input className="input" type="number" min="0" placeholder="Số lượng" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
             <input className="input" type="number" min="0" placeholder="Đơn giá" value={row.donGia} onChange={e => setRow(i, "donGia", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
             <button onClick={() => setRows(rs => rs.filter((_, idx) => idx !== i))} className="btn u-text-danger" style={{ background: 'none', padding: '8px' }}>✕</button>
           </div>
         ))}
+        {rows.length === 0 && <p className="empty-msg" style={{ padding: '12px 0' }}>Chưa có lô nào</p>}
       </div>
+
+      {tongGiaTri > 0 && (
+        <div style={{ textAlign: "right", marginBottom: 12, fontSize: 13, fontWeight: 700, color: "#4f46e5" }}>
+          Tổng giá trị: {tongGiaTri.toLocaleString("vi-VN")} đ
+        </div>
+      )}
+
       <FormField label="Ghi chú"><input className="input" value={ghiChu} onChange={e => setGhiChu(e.target.value)} placeholder="Tùy chọn..." /></FormField>
       <div className="u-flex u-justify-end u-gap-3 u-mt-3">
         <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
@@ -272,7 +292,7 @@ function OrderModal({ onClose, onSaved, maSieuThi }: { onClose: () => void; onSa
 
 // Edit Order Modal
 function EditOrderModal({ order, onClose, onSaved }: { order: ApiDonHang; onClose: () => void; onSaved: () => void; }) {
-  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]>([]);
+  const [lots, setLots] = useState<{ MaLo: number; TenSanPham: string; SoLuongHienTai: number; GiaTien?: number }[]>([]);
   const [rows, setRows] = useState<ChiTietRowEdit[]>([]);
   const [ghiChu, setGhiChu] = useState(order.GhiChu || "");
   const [loading, setLoading] = useState(false);
@@ -283,13 +303,13 @@ function EditOrderModal({ order, onClose, onSaved }: { order: ApiDonHang; onClos
       .then((d: { MaLo: number; TenSanPham: string; SoLuong: number; DonGia: number }[]) => {
         setRows(Array.isArray(d) ? d.map(x => ({ maLo: String(x.MaLo), tenLo: x.TenSanPham || "", soLuong: String(x.SoLuong), donGia: String(x.DonGia), isExisting: true })) : []);
       }).catch(() => setErr("Không tải được chi tiết đơn"));
-    apiFetch("/api/lo-nong-san/get-all").then((d: { MaLo: number; TenSanPham: string; SoLuongHienTai: number }[]) => setLots(d)).catch(console.error);
+    apiFetch("/api/lo-nong-san/get-all").then((d: { MaLo: number; TenSanPham: string; SoLuongHienTai: number; GiaTien?: number }[]) => setLots(d)).catch(console.error);
   }, [order.MaDonHang]);
 
   function setRow(i: number, field: keyof ChiTietRowEdit, val: string) {
     setRows(rs => rs.map((r, idx) => {
       if (idx !== i) return r;
-      if (field === "maLo") { const lot = lots.find(l => String(l.MaLo) === val); return { ...r, maLo: val, tenLo: lot?.TenSanPham || "" }; }
+      if (field === "maLo") { const lot = lots.find(l => String(l.MaLo) === val); return { ...r, maLo: val, tenLo: lot?.TenSanPham || "", donGia: lot?.GiaTien != null ? String(lot.GiaTien) : r.donGia }; }
       return { ...r, [field]: val };
     }));
   }
@@ -325,7 +345,7 @@ function EditOrderModal({ order, onClose, onSaved }: { order: ApiDonHang; onClos
       <div className="u-mb-4">
         <div className="u-flex u-justify-between u-items-center u-mb-2">
           <label className="form-label">Chi tiết đơn hàng</label>
-          <button onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: "", isExisting: false }])}
+          <button onClick={() => setRows(rs => [...rs, { maLo: lots[0] ? String(lots[0].MaLo) : "", tenLo: lots[0]?.TenSanPham || "", soLuong: "", donGia: lots[0]?.GiaTien != null ? String(lots[0].GiaTien) : "", isExisting: false }])}
             className="btn btn-secondary u-text-sm" style={{ padding: '4px 10px' }}>+ Thêm lô</button>
         </div>
         {rows.map((row, i) => (
@@ -333,7 +353,7 @@ function EditOrderModal({ order, onClose, onSaved }: { order: ApiDonHang; onClos
             {row.isExisting
               ? <div className="input u-bg-light u-text-muted">{row.tenLo || `Lô #${row.maLo}`}</div>
               : <select className="select" value={row.maLo} onChange={e => setRow(i, "maLo", e.target.value)}>
-                  {lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham}</option>)}
+                  {lots.map(l => <option key={l.MaLo} value={l.MaLo}>{l.TenSanPham} (còn {l.SoLuongHienTai}) {l.GiaTien != null ? `- ${l.GiaTien.toLocaleString("vi-VN")}đ` : ""}</option>)}
                 </select>
             }
             <input className="input" type="number" min="0" placeholder="Số lượng" value={row.soLuong} onChange={e => setRow(i, "soLuong", e.target.value)} onWheel={e => (e.target as HTMLInputElement).blur()} />
@@ -592,8 +612,9 @@ export default function SieuThiApp() {
               <input className="input" style={{ width: 220, flex: "none" }} placeholder="Tìm đại lý, mã đơn..." value={orderSearch} onChange={e => setOrderSearch(e.target.value)} />
               <select className="select" style={{ width: 160, flex: "none" }} value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)}>
                 <option value="all">Tất cả trạng thái</option>
-                <option value="chua_nhan">Chưa nhận</option>
-                <option value="da_nhan">Đã nhận</option>
+                <option value="chua_nhan">Chờ xác nhận</option>
+                <option value="da_nhan">Đã xác nhận</option>
+                <option value="hoan_thanh">Đã xuất kho</option>
                 <option value="da_huy">Đã hủy</option>
               </select>
               <span className="u-text-sm u-text-muted">{filteredOrders.length} đơn</span>
@@ -617,10 +638,12 @@ export default function SieuThiApp() {
                     {o.TrangThai === "chua_nhan" && (
                       <>
                         <ActionBtn onClick={() => { setEditOrder(o); setModal("editOrder"); }} color="var(--primary)">Sửa</ActionBtn>
-                        <ActionBtn onClick={() => handleNhanHang(o.MaDonHang)} color="#059669">Nhận</ActionBtn>
                         <ActionBtn onClick={() => huyDonHang(o.MaDonHang)} color="#f59e0b">Hủy</ActionBtn>
                         <ActionBtn onClick={() => handleDeleteOrder(o.MaDonHang)} color="#dc2626">Xóa</ActionBtn>
                       </>
+                    )}
+                    {o.TrangThai === "hoan_thanh" && (
+                      <ActionBtn onClick={() => handleNhanHang(o.MaDonHang)} color="#059669">📥 Nhận hàng</ActionBtn>
                     )}
                   </Td>
                 </tr>
@@ -630,45 +653,7 @@ export default function SieuThiApp() {
           </Panel>
         )}
 
-        {/* Receive */}
-        {section === "receive" && (
-          <div className="u-fade-in">
-            <div className="stat-grid">
-              <div className="stat-card" style={{ "--accent": "#b45309" } as any}>
-                <div className="stat-icon">📥</div>
-                <div><div className="stat-value">{chuaNhan}</div><div className="stat-label">Chờ nhận</div></div>
-              </div>
-              <div className="stat-card" style={{ "--accent": "#059669" } as any}>
-                <div className="stat-icon">✅</div>
-                <div><div className="stat-value">{apiOrders.filter(o => o.TrangThai === "da_nhan" && o.NgayDat && new Date(o.NgayDat).toDateString() === new Date().toDateString()).length}</div><div className="stat-label">Đã nhận hôm nay</div></div>
-              </div>
-            </div>
-            <Panel>
-              <SectionTitle>Đơn hàng đang chờ nhận</SectionTitle>
-              <StyledTable headers={["Mã đơn", "Đại lý", "Tổng SL (kg)", "Tổng giá trị", "Ngày đặt", "Trạng thái", ""]}>
-                {apiOrders.filter(o => o.TrangThai === "chua_nhan").map(o => (
-                  <tr key={o.MaDonHang}>
-                    <Td>
-                      <span className="u-text-primary u-font-bold u-text-sm" style={{ cursor: "pointer" }} onClick={() => { setDetailOrder(o); setModal("detail"); }}>#{o.MaDonHang}</span>
-                    </Td>
-                    <Td><b>{o.TenDaiLy || "--"}</b></Td>
-                    <Td>{o.TongSoLuong != null ? o.TongSoLuong.toLocaleString("vi-VN") : "--"}</Td>
-                    <Td className="u-text-primary u-font-bold">{o.TongGiaTri ? o.TongGiaTri.toLocaleString("vi-VN") + " đ" : "--"}</Td>
-                    <Td className="u-text-muted u-text-sm">{o.NgayDat ? new Date(o.NgayDat).toLocaleDateString("vi-VN") : "--"}</Td>
-                    <Td><StatusBadge status={o.TrangThai} /></Td>
-                    <Td>
-                      <ActionBtn onClick={() => { setDetailOrder(o); setModal("detail"); }} color="#6366f1">🔍 Chi tiết</ActionBtn>
-                      <ActionBtn onClick={() => handleNhanHang(o.MaDonHang)} color="#059669">Xác nhận nhận hàng</ActionBtn>
-                    </Td>
-                  </tr>
-                ))}
-              </StyledTable>
-              {apiOrders.filter(o => o.TrangThai === "chua_nhan").length === 0 && (
-                <p className="empty-msg">Không có đơn hàng chờ nhận</p>
-              )}
-            </Panel>
-          </div>
-        )}
+
 
         {/* Inventory */}
         {section === "inventory" && (
