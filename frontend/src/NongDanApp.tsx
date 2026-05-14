@@ -347,78 +347,175 @@ function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]
   );
 }
 
-function BatchDetailModal({ batch, onClose }: { batch: Batch; onClose: () => void }) {
+
+function KhoDetailModal({ batch, onClose, onEdit, onDelete }: { batch: Batch; onClose: () => void; onEdit: (b: Batch) => void; onDelete: (id: string) => void }) {
+  const days = daysUntil(batch.expiry);
+  const pctUsed = batch.soLuongBanDau > 0 ? ((batch.soLuongBanDau - batch.soLuongHienTai) / batch.soLuongBanDau) * 100 : 0;
+  const pctRemain = 100 - pctUsed;
   return (
-    <Modal title={`Chi tiết lô #${batch.id}`} onClose={onClose}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px", padding: "4px 0" }}>
+    <Modal title={`Chi tiết sản phẩm kho #${batch.id}`} onClose={onClose} wide>
+      {/* Header card */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 18px", background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%)", borderRadius: 12, marginBottom: 20 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 14, background: "linear-gradient(135deg, #16a34a, #059669)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>📦</div>
+        <div style={{ flex: 1 }}>
+          <div className="u-font-black u-text-lg u-text-dark">{batch.product}</div>
+          <div className="u-text-sm u-text-muted">Trang trại: {batch.farmName}</div>
+        </div>
+        <StatusBadge status={batch.status} />
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+        <div style={{ padding: "14px 16px", background: "#f0f9ff", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">SL ban đầu</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#2563eb" }}>{batch.soLuongBanDau.toLocaleString("vi-VN")} kg</div>
+        </div>
+        <div style={{ padding: "14px 16px", background: "#f0fdf4", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">SL hiện tại</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#16a34a" }}>{batch.soLuongHienTai.toLocaleString("vi-VN")} kg</div>
+        </div>
+        <div style={{ padding: "14px 16px", background: batch.giaTien ? "#fefce8" : "#f8fafc", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">Giá / kg</div>
+          <div className="u-font-black u-text-lg" style={{ color: batch.giaTien ? "#d97706" : "#94a3b8" }}>{batch.giaTien ? `${batch.giaTien.toLocaleString("vi-VN")} đ` : "—"}</div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ marginBottom: 20 }}>
+        <div className="u-flex u-justify-between u-mb-2">
+          <span className="u-text-sm u-text-muted">Tồn kho</span>
+          <span className="u-text-sm u-font-bold" style={{ color: pctRemain < 20 ? "#dc2626" : "#16a34a" }}>{pctRemain.toFixed(0)}%</span>
+        </div>
+        <div style={{ height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pctRemain}%`, background: pctRemain < 20 ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#22c55e,#16a34a)", borderRadius: 4, transition: "width .3s" }} />
+        </div>
+      </div>
+
+      {/* Detail fields */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
         {[
-          ["Sản phẩm", batch.product],
-          ["Trang trại", batch.farmName],
-          ["SL ban đầu", `${batch.soLuongBanDau} kg`],
-          ["SL hiện tại", `${batch.soLuongHienTai} kg`],
-          ["Thu hoạch", batch.harvest || "—"],
+          ["Mã lô", `#${batch.id}`],
+          ["Mã sản phẩm", batch.maSanPham ? `#${batch.maSanPham}` : "—"],
+          ["Ngày thu hoạch", batch.harvest || "—"],
           ["Hạn sử dụng", batch.expiry || "—"],
-          ["Chứng nhận", batch.soChungNhan || "—"],
-          ["Giá / kg", batch.giaTien ? `${batch.giaTien.toLocaleString("vi-VN")} đ` : "—"],
+          ["Chứng nhận lô", batch.soChungNhan || "—"],
+          ["Còn lại", days > 0 ? `${days} ngày` : "Đã hết hạn"],
         ].map(([k, v]) => (
-          <div key={k} style={{ padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+          <div key={k} style={{ padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
             <div className="u-text-sm u-text-muted">{k}</div>
             <div className="u-font-bold u-text-dark" style={{ marginTop: 3 }}>{v}</div>
           </div>
         ))}
-        <div style={{ gridColumn: "1/-1", padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
-          <div className="u-text-sm u-text-muted">Trạng thái</div>
-          <div style={{ marginTop: 4 }}><StatusBadge status={batch.status} /></div>
-        </div>
       </div>
-      <div className="u-flex u-justify-end u-mt-4">
+
+      {/* Total value */}
+      {batch.giaTien && batch.soLuongHienTai > 0 && (
+        <div style={{ marginTop: 16, padding: "12px 16px", background: "#eef2ff", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span className="u-font-bold u-text-dark">Giá trị tồn kho</span>
+          <span style={{ fontWeight: 800, fontSize: 17, color: "#4f46e5" }}>{(batch.giaTien * batch.soLuongHienTai).toLocaleString("vi-VN")} đ</span>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-4 u-border-t">
         <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+        <ActionBtn onClick={() => { onClose(); onEdit(batch); }} color="#2563eb">Sửa</ActionBtn>
+        <ActionBtn onClick={() => { if (window.confirm(`Xóa lô sản phẩm "${batch.product}" khỏi kho?`)) { onClose(); onDelete(batch.id); } }} color="#dc2626">Xóa</ActionBtn>
       </div>
     </Modal>
   );
 }
 
-function KhoSection({ batches, orders }: { batches: Batch[]; orders: Order[] }) {
+function KhoSection({ batches, orders, onEdit, onDelete }: { batches: Batch[]; orders: Order[]; onEdit: (b: Batch) => void; onDelete: (id: string) => void }) {
   const exported = orders.filter(o => o.status === "hoan_thanh");
   const [detailBatch, setDetailBatch] = useState<Batch | null>(null);
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const filtered = filterStatus === "all" ? batches : batches.filter(b => b.status === filterStatus);
+  const tongSL = batches.reduce((s, b) => s + b.soLuongHienTai, 0);
+  const tongGiaTri = batches.reduce((s, b) => s + (b.giaTien ? b.giaTien * b.soLuongHienTai : 0), 0);
+  const sapHet = batches.filter(b => daysUntil(b.expiry) <= 14).length;
+
   return (
-    <div className="u-grid u-grid-2-col u-gap-6">
-      <Panel>
-        <div className="panel-title u-mb-2">📥 Tồn kho</div>
-        <p className="page-subtitle u-mb-4">Lô sản phẩm đang lưu kho</p>
-        <StyledTable headers={["Mã lô", "Sản phẩm", "Trang trại", "Hạn dùng", "Trạng thái", ""]}>
-          {batches.map(b => (
-            <tr key={b.id}>
-              <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
-              <Td><b>{b.product}</b></Td>
-              <Td>{b.farmName}</Td>
-              <Td>{b.expiry}</Td>
-              <Td><StatusBadge status={b.status} /></Td>
-              <Td><ActionBtn onClick={() => setDetailBatch(b)} color="#6366f1">Xem</ActionBtn></Td>
-            </tr>
-          ))}
-        </StyledTable>
-      </Panel>
-      <Panel>
-        <div className="panel-title u-mb-2">📤 Lịch sử xuất hàng</div>
-        <p className="page-subtitle u-mb-4">Hàng đã xuất cho Đại lý</p>
-        <StyledTable headers={["Mã đơn", "Mã lô", "Số lượng", "Đại lý", "Ngày", ""]}>
-          {exported.length === 0
-            ? <tr><td colSpan={6} className="empty-msg">Chưa có lịch sử xuất hàng</td></tr>
-            : exported.map(o => (
-              <tr key={o.id}>
-                <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
-                <Td>{o.batchId}</Td>
-                <Td>{o.quantity} kg</Td>
-                <Td>{o.agentName}</Td>
-                <Td>{o.date}</Td>
-                <Td><ActionBtn onClick={() => setDetailOrderId(o.id)} color="#6366f1">Xem</ActionBtn></Td>
-              </tr>
-            ))}
-        </StyledTable>
-      </Panel>
-      {detailBatch && <BatchDetailModal batch={detailBatch} onClose={() => setDetailBatch(null)} />}
+    <div>
+      {/* Stat cards */}
+      <div className="stat-grid" style={{ marginBottom: 20 }}>
+        <StatCard icon="📦" label="Tổng lô trong kho" value={batches.length} accent="#2563eb" />
+        <StatCard icon="⚖️" label="Tổng tồn kho" value={`${tongSL.toLocaleString("vi-VN")} kg`} accent="#16a34a" />
+        <StatCard icon="💰" label="Giá trị tồn kho" value={`${tongGiaTri.toLocaleString("vi-VN")} đ`} accent="#7c3aed" />
+        <StatCard icon="⚠️" label="Sắp hết hạn" value={sapHet} accent="#dc2626" />
+      </div>
+
+      <div className="u-grid u-grid-2-col u-gap-6">
+        <Panel style={{ gridColumn: "1 / -1" }}>
+          <div className="panel-title u-flex u-flex-wrap u-gap-4 u-items-center u-mb-2">
+            <span>📥 Tồn kho</span>
+            <select className="select" style={{ width: "auto", minWidth: 160, fontSize: 13 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="all">Tất cả trạng thái</option>
+              <option value="tai_trang_trai">Tại trang trại</option>
+              <option value="da_xuat">Đã xuất</option>
+              <option value="het_hang">Hết hàng</option>
+            </select>
+          </div>
+          <p className="page-subtitle u-mb-4">Lô sản phẩm đang lưu kho — {filtered.length} lô</p>
+          {filtered.length === 0 ? (
+            <p className="empty-msg">Không có lô sản phẩm nào{filterStatus !== "all" ? " với trạng thái này" : ""}</p>
+          ) : (
+            <StyledTable headers={["Mã lô", "Sản phẩm", "Trang trại", "SL hiện tại", "Giá/kg", "Hạn dùng", "Trạng thái", "Hành động"]}>
+              {filtered.map(b => {
+                const days = daysUntil(b.expiry);
+                const expiryClass = days <= 7 ? "u-text-danger u-font-bold" : days <= 14 ? "u-text-warning u-font-bold" : "";
+                return (
+                  <tr key={b.id}>
+                    <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
+                    <Td><b>{b.product}</b></Td>
+                    <Td>{b.farmName}</Td>
+                    <Td>
+                      <div className="u-flex u-items-center u-gap-2">
+                        <div style={{ flex: 1, minWidth: 40, height: 5, background: "#f0f4ff", borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${b.soLuongBanDau ? (b.soLuongHienTai / b.soLuongBanDau) * 100 : 0}%`, background: b.soLuongHienTai / b.soLuongBanDau < 0.2 ? "#ef4444" : "#22c55e", borderRadius: 3 }} />
+                        </div>
+                        <span className="u-text-sm u-font-bold">{b.soLuongHienTai.toLocaleString("vi-VN")} kg</span>
+                      </div>
+                    </Td>
+                    <Td>{b.giaTien ? <span style={{ color: "#059669", fontWeight: 700 }}>{b.giaTien.toLocaleString("vi-VN")} đ</span> : <span className="u-text-muted">—</span>}</Td>
+                    <Td><span className={expiryClass}>{b.expiry}{days <= 14 && days > 0 ? ` (${days}d)` : days <= 0 ? " (!)" : ""}</span></Td>
+                    <Td><StatusBadge status={b.status} /></Td>
+                    <Td>
+                      <div className="u-flex u-gap-2">
+                        <ActionBtn onClick={() => setDetailBatch(b)} color="#6366f1">Xem</ActionBtn>
+                        <ActionBtn onClick={() => onEdit(b)} color="#2563eb">Sửa</ActionBtn>
+                        <ActionBtn onClick={() => { if (window.confirm(`Xóa lô "${b.product}" (${b.soLuongHienTai} kg)?`)) onDelete(b.id); }} color="#dc2626">Xóa</ActionBtn>
+                      </div>
+                    </Td>
+                  </tr>
+                );
+              })}
+            </StyledTable>
+          )}
+        </Panel>
+
+        <Panel style={{ gridColumn: "1 / -1" }}>
+          <div className="panel-title u-mb-2">📤 Lịch sử xuất hàng</div>
+          <p className="page-subtitle u-mb-4">Hàng đã xuất cho Đại lý — {exported.length} đơn</p>
+          <StyledTable headers={["Mã đơn", "Mã lô", "Số lượng", "Đại lý", "Ngày", ""]}>
+            {exported.length === 0
+              ? <tr><td colSpan={6} className="empty-msg">Chưa có lịch sử xuất hàng</td></tr>
+              : exported.map(o => (
+                <tr key={o.id}>
+                  <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
+                  <Td>{o.batchId}</Td>
+                  <Td>{o.quantity} kg</Td>
+                  <Td>{o.agentName}</Td>
+                  <Td>{o.date}</Td>
+                  <Td><ActionBtn onClick={() => setDetailOrderId(o.id)} color="#6366f1">Xem</ActionBtn></Td>
+                </tr>
+              ))}
+          </StyledTable>
+        </Panel>
+      </div>
+      {detailBatch && <KhoDetailModal batch={detailBatch} onClose={() => setDetailBatch(null)} onEdit={onEdit} onDelete={onDelete} />}
       {detailOrderId && <OrderDetailModal orderId={detailOrderId} onClose={() => setDetailOrderId(null)} />}
     </div>
   );
@@ -995,7 +1092,7 @@ export default function NongDanApp() {
           {section === "farms"     && <FarmsSection farms={farms} onNew={() => { setEditTarget(null); setModal("new-farm"); }} onEdit={f => { setEditTarget(f); setModal("edit-farm"); }} onDelete={handleDeleteFarm} />}
           {section === "batches"   && <BatchesSection batches={batches} onNew={() => { setEditTarget(null); setModal("new-batch"); }} onEdit={b => { setEditTarget(b); setModal("edit-batch"); }} onDelete={handleDeleteBatch} />}
           {section === "orders"    && <OrdersSection orders={orders} onAccept={handleAcceptOrder} onShip={handleShipOrder} onCancel={handleCancelOrder} />}
-          {section === "kho"       && <KhoSection batches={batches} orders={orders} />}
+          {section === "kho"       && <KhoSection batches={batches} orders={orders} onEdit={b => { setEditTarget(b as Batch); setModal("edit-batch"); }} onDelete={handleDeleteBatch} />}
           {section === "reports"   && <ReportsSection farms={farms} batches={batches} orders={orders} />}
         </div>
       </div>

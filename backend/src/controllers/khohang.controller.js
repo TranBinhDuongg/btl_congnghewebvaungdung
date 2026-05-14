@@ -90,4 +90,41 @@ const xoaTonKho = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getAllKho, getKhoByDaiLy, getKhoBySieuThi, getKhoById, taoKho, capNhatKho, xoaKho, xoaTonKho };
+const capNhatTonKho = async (req, res) => {
+  const { MaKho, MaLo, SoLuong } = req.body;
+  if (MaKho == null || MaLo == null || SoLuong == null)
+    return res.status(400).json({ message: 'Thiếu MaKho, MaLo hoặc SoLuong' });
+  try {
+    const pool = await getPool();
+    await pool.request()
+      .input('MaKho', sql.Int, MaKho)
+      .input('MaLo', sql.Int, MaLo)
+      .input('SoLuong', sql.Decimal(18, 2), SoLuong)
+      .query('UPDATE TonKho SET SoLuong = @SoLuong, CapNhatCuoi = SYSDATETIME() WHERE MaKho = @MaKho AND MaLo = @MaLo');
+    res.json({ message: 'Cập nhật tồn kho thành công' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const themTonKho = async (req, res) => {
+  const { MaKho, MaLo, SoLuong } = req.body;
+  if (!MaKho || !MaLo || !SoLuong)
+    return res.status(400).json({ message: 'Thiếu MaKho, MaLo hoặc SoLuong' });
+  try {
+    const pool = await getPool();
+    const exists = await pool.request()
+      .input('MaKho', sql.Int, MaKho).input('MaLo', sql.Int, MaLo)
+      .query('SELECT 1 FROM TonKho WHERE MaKho = @MaKho AND MaLo = @MaLo');
+    if (exists.recordset.length > 0) {
+      await pool.request()
+        .input('MaKho', sql.Int, MaKho).input('MaLo', sql.Int, MaLo).input('SoLuong', sql.Decimal(18, 2), SoLuong)
+        .query('UPDATE TonKho SET SoLuong = SoLuong + @SoLuong, CapNhatCuoi = SYSDATETIME() WHERE MaKho = @MaKho AND MaLo = @MaLo');
+    } else {
+      await pool.request()
+        .input('MaKho', sql.Int, MaKho).input('MaLo', sql.Int, MaLo).input('SoLuong', sql.Decimal(18, 2), SoLuong)
+        .query('INSERT INTO TonKho (MaKho, MaLo, SoLuong) VALUES (@MaKho, @MaLo, @SoLuong)');
+    }
+    res.status(201).json({ message: 'Thêm tồn kho thành công' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = { getAllKho, getKhoByDaiLy, getKhoBySieuThi, getKhoById, taoKho, capNhatKho, xoaKho, xoaTonKho, capNhatTonKho, themTonKho };

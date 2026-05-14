@@ -146,5 +146,7 @@ router.delete('/xoa-kho/:maKho', ctrl.xoaKho);
  *         description: Xóa thành công
  */
 router.delete('/xoa-ton-kho', ctrl.xoaTonKho);
+router.put('/cap-nhat-ton-kho', ctrl.capNhatTonKho);
+router.post('/them-ton-kho', ctrl.themTonKho);
 
 module.exports = router;

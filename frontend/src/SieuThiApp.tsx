@@ -689,7 +689,7 @@ export default function SieuThiApp() {
                       <ActionBtn onClick={() => handleXoaKho(maKho)} color="#dc2626">Xóa</ActionBtn>
                     </div>
                   </div>
-                  <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Cập nhật cuối"]}>
+                  <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Cập nhật cuối", ""]}>
                     {items.filter(k => k.TenSanPham).map((k, i) => (
                       <tr key={`${k.MaKho}-${k.MaLo}-${i}`}>
                         <Td><b>{k.TenSanPham}</b></Td>
@@ -700,6 +700,23 @@ export default function SieuThiApp() {
                           </span>
                         </Td>
                         <Td className="u-text-muted u-text-sm">{k.CapNhatCuoi ? new Date(k.CapNhatCuoi).toLocaleDateString("vi-VN") : "--"}</Td>
+                        <Td>
+                          <ActionBtn onClick={async () => {
+                            const sl = prompt(`Nhập số lượng mới cho "${k.TenSanPham}":`, String(k.SoLuong || 0));
+                            if (sl === null) return;
+                            try {
+                              await apiFetch("/api/KhoHang/cap-nhat-ton-kho", { method: "PUT", body: JSON.stringify({ MaKho: k.MaKho, MaLo: k.MaLo, SoLuong: Number(sl) }) });
+                              loadKho();
+                            } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi"); }
+                          }} color="var(--primary)">Sửa SL</ActionBtn>
+                          <ActionBtn onClick={async () => {
+                            if (!window.confirm(`Xóa "${k.TenSanPham}" khỏi kho?`)) return;
+                            try {
+                              await apiFetch("/api/KhoHang/xoa-ton-kho", { method: "DELETE", body: JSON.stringify({ MaKho: k.MaKho, MaLo: k.MaLo }) });
+                              loadKho();
+                            } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi"); }
+                          }} color="#dc2626">Xóa</ActionBtn>
+                        </Td>
                       </tr>
                     ))}
                     {items.filter(k => k.TenSanPham).length === 0 && (

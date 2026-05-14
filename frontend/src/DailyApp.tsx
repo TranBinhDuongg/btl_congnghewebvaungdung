@@ -15,7 +15,7 @@ export interface ImportReceipt {
   status: "created" | "pending" | "preparing" | "shipped" | "received";
 }
 export interface Warehouse { maKho: string; tenKho: string; diaChi: string; soDienThoai: string; }
-export interface InventoryBatch { maLo: string; sanPham: string; soLuong: number; ngayNhap: string; status: "in_stock" | "low" | "out"; }
+export interface InventoryBatch { maLo: string; maKho: string; sanPham: string; soLuong: number; ngayNhap: string; status: "in_stock" | "low" | "out"; }
 export interface QualityCheck {
   maKiemDinh: string; maLo: string; tenSanPham?: string; ngayKiem: string; nguoiKiem: string;
   ketQua: "dat" | "khong_dat" | "A" | "B" | "C";
@@ -369,15 +369,115 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
   );
 }
 
-function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehouse, onDeleteWarehouse }: {
+function InventoryDetailModal({ batch, onClose, onEdit, onDelete }: { batch: InventoryBatch; onClose: () => void; onEdit: (b: InventoryBatch) => void; onDelete: (b: InventoryBatch) => void }) {
+  return (
+    <Modal title={`Chi tiết sản phẩm kho — Lô #${batch.maLo}`} onClose={onClose} wide>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 18px", background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)", borderRadius: 12, marginBottom: 20 }}>
+        <div style={{ width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg, var(--primary), #4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 20 }}>K</div>
+        <div style={{ flex: 1 }}>
+          <div className="u-font-black u-text-lg u-text-dark">{batch.sanPham}</div>
+          <div className="u-text-sm u-text-muted">Kho #{batch.maKho} — Lô #{batch.maLo}</div>
+        </div>
+        <StatusBadge status={batch.status} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+        <div style={{ padding: "14px 16px", background: "#f0f9ff", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">Mã lô</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#2563eb" }}>#{batch.maLo}</div>
+        </div>
+        <div style={{ padding: "14px 16px", background: "#f0fdf4", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">Số lượng tồn</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#16a34a" }}>{batch.soLuong.toLocaleString("vi-VN")} kg</div>
+        </div>
+        <div style={{ padding: "14px 16px", background: "#fefce8", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">Cập nhật cuối</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#d97706" }}>{batch.ngayNhap || "—"}</div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+        {[
+          ["Sản phẩm", batch.sanPham],
+          ["Mã kho", `#${batch.maKho}`],
+          ["Mã lô", `#${batch.maLo}`],
+          ["Trạng thái", batch.status === "in_stock" ? "Còn hàng" : batch.status === "low" ? "Sắp hết" : "Hết hàng"],
+        ].map(([k, v]) => (
+          <div key={k} style={{ padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+            <div className="u-text-sm u-text-muted">{k}</div>
+            <div className="u-font-bold u-text-dark" style={{ marginTop: 3 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-4 u-border-t">
+        <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+        <ActionBtn onClick={() => { onClose(); onEdit(batch); }} variant="primary">Sửa</ActionBtn>
+        <ActionBtn onClick={() => { if (window.confirm(`Xóa "${batch.sanPham}" khỏi kho?`)) { onClose(); onDelete(batch); } }} variant="danger">Xóa</ActionBtn>
+      </div>
+    </Modal>
+  );
+}
+
+function InventoryEditModal({ batch, onClose, onSaved }: { batch: InventoryBatch; onClose: () => void; onSaved: () => void }) {
+  const [soLuong, setSoLuong] = useState(String(batch.soLuong));
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    if (!soLuong || Number(soLuong) < 0) return setErr("Số lượng không hợp lệ");
+    setLoading(true); setErr("");
+    try {
+      const r = await fetch("/api/KhoHang/cap-nhat-ton-kho", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ MaKho: Number(batch.maKho), MaLo: Number(batch.maLo), SoLuong: Number(soLuong) }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message);
+      onSaved(); onClose();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Lỗi cập nhật"); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <Modal title={`Sửa tồn kho — ${batch.sanPham}`} onClose={onClose}>
+      {err && <div className="error-msg">{err}</div>}
+      <div className="u-bg-light u-border u-rounded-md u-mb-4 u-text-sm u-text-muted" style={{ padding: "12px 16px" }}>
+        <div className="u-font-black u-text-dark u-mb-1">{batch.sanPham}</div>
+        Kho: #{batch.maKho} | Lô: #{batch.maLo} | Hiện tại: {batch.soLuong} kg
+      </div>
+      <FormField label="Số lượng mới (kg) *">
+        <input className="input" type="number" min="0" step="0.01" value={soLuong} onChange={e => setSoLuong(e.target.value)} />
+      </FormField>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
+        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
+        <PrimaryBtn onClick={handleSave}>{loading ? "Đang lưu..." : "Lưu"}</PrimaryBtn>
+      </div>
+    </Modal>
+  );
+}
+
+function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehouse, onDeleteWarehouse, onEditInventory, onDeleteInventory }: {
   warehouses: Warehouse[]; inventory: InventoryBatch[];
   onNewWarehouse: () => void; onEditWarehouse: (w: Warehouse) => void; onDeleteWarehouse: (id: string) => void;
+  onEditInventory: (b: InventoryBatch) => void; onDeleteInventory: (b: InventoryBatch) => void;
 }) {
+  const [detailBatch, setDetailBatch] = useState<InventoryBatch | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const filtered = filterStatus === "all" ? inventory : inventory.filter(b => b.status === filterStatus);
+  const totalStock = inventory.reduce((s, b) => s + b.soLuong, 0);
+  const lowCount = inventory.filter(b => b.status === "low").length;
+  const outCount = inventory.filter(b => b.status === "out").length;
+
   return (
     <div className="u-flex u-flex-col u-gap-4 u-fade-in">
+      <div className="stat-grid">
+        <StatCard icon="P" label="Tổng lô trong kho" value={inventory.length} accent="var(--primary)" />
+        <StatCard icon="T" label="Tổng tồn kho" value={`${totalStock.toLocaleString("vi-VN")} kg`} accent="var(--success)" />
+        <StatCard icon="!" label="Sắp hết hàng" value={lowCount} accent="var(--warning)" />
+        <StatCard icon="X" label="Hết hàng" value={outCount} accent="var(--danger)" />
+      </div>
+
       <Panel>
         <div className="u-flex u-justify-between u-items-center u-mb-4">
-          <SectionTitle>🏪 Danh sách kho nhập hàng</SectionTitle>
+          <SectionTitle>Danh sách kho nhập hàng</SectionTitle>
           <PrimaryBtn onClick={onNewWarehouse}>+ Thêm kho</PrimaryBtn>
         </div>
         <StyledTable headers={["Mã kho", "Tên kho", "Địa chỉ", "SĐT", "Thao tác"]}>
@@ -397,19 +497,42 @@ function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehou
       </Panel>
       
       <Panel>
-        <SectionTitle>📦 Tồn kho hiện tại (theo lô)</SectionTitle>
-        <StyledTable headers={["Mã lô", "Sản phẩm", "Số lượng", "Ngày cập nhật", "Trạng thái"]}>
-          {inventory.map(b => (
-            <tr key={b.maLo}>
-              <td><code className="u-text-sm u-text-muted">{b.maLo}</code></td>
-              <td className="u-font-bold">{b.sanPham}</td>
-              <td>{b.soLuong} kg</td>
-              <td>{b.ngayNhap}</td>
-              <td><StatusBadge status={b.status} /></td>
-            </tr>
-          ))}
-        </StyledTable>
+        <div className="u-flex u-justify-between u-items-center u-mb-4">
+          <SectionTitle>Tồn kho hiện tại (theo lô)</SectionTitle>
+          <select className="select" style={{ width: "auto", minWidth: 160, fontSize: 13 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="in_stock">Còn hàng</option>
+            <option value="low">Sắp hết</option>
+            <option value="out">Hết hàng</option>
+          </select>
+        </div>
+        <p className="page-subtitle u-mb-4">Sản phẩm đang lưu kho — {filtered.length} lô</p>
+        {filtered.length === 0 ? (
+          <p className="empty-msg">Không có sản phẩm nào{filterStatus !== "all" ? " với trạng thái này" : ""}</p>
+        ) : (
+          <StyledTable headers={["Mã lô", "Sản phẩm", "Số lượng", "Ngày cập nhật", "Trạng thái", "Hành động"]}>
+            {filtered.map(b => (
+              <tr key={b.maLo}>
+                <td><code className="u-text-sm u-text-muted">{b.maLo}</code></td>
+                <td className="u-font-bold">{b.sanPham}</td>
+                <td>
+                  <span className="u-font-bold" style={{ color: b.status === "out" ? "#dc2626" : b.status === "low" ? "#d97706" : "#16a34a" }}>
+                    {b.soLuong.toLocaleString("vi-VN")} kg
+                  </span>
+                </td>
+                <td className="u-text-muted u-text-sm">{b.ngayNhap}</td>
+                <td><StatusBadge status={b.status} /></td>
+                <td>
+                  <ActionBtn onClick={() => setDetailBatch(b)} variant="info">Xem</ActionBtn>
+                  <ActionBtn onClick={() => onEditInventory(b)} variant="primary">Sửa</ActionBtn>
+                  <ActionBtn onClick={() => onDeleteInventory(b)} variant="danger">Xóa</ActionBtn>
+                </td>
+              </tr>
+            ))}
+          </StyledTable>
+        )}
       </Panel>
+      {detailBatch && <InventoryDetailModal batch={detailBatch} onClose={() => setDetailBatch(null)} onEdit={onEditInventory} onDelete={onDeleteInventory} />}
     </div>
   );
 }
@@ -1050,7 +1173,7 @@ const PAGE_TITLES: Record<Section, string> = {
   dashboard: "Bảng điều khiển", orders: "Quản lý đơn hàng",
   inventory: "Quản lý kho", quality: "Kiểm định chất lượng", reports: "Báo cáo thống kê",
 };
-type ModalType = "receipt" | "receipt-edit" | "warehouse" | "warehouse-edit" | "quality" | "quality-edit" | "profile" | "edit-profile" | null;
+type ModalType = "receipt" | "receipt-edit" | "warehouse" | "warehouse-edit" | "quality" | "quality-edit" | "inventory-edit" | "profile" | "edit-profile" | null;
 
 export default function DailyApp() {
   const [section, setSection] = useState<Section>("dashboard");
@@ -1060,7 +1183,7 @@ export default function DailyApp() {
   const [quality, setQuality] = useState<QualityCheck[]>([]);
   const [retail, setRetail] = useState<RetailOrder[]>([]);
   const [modal, setModal] = useState<ModalType>(null);
-  const [editTarget, setEditTarget] = useState<ImportReceipt | Warehouse | QualityCheck | null>(null);
+  const [editTarget, setEditTarget] = useState<ImportReceipt | Warehouse | QualityCheck | InventoryBatch | null>(null);
 
   const authUser = getCurrentUser();
   const maDaiLy = authUser?.maDoiTuong;
@@ -1096,6 +1219,7 @@ export default function DailyApp() {
       .then((data: any[]) => {
         setInventory(data.map(b => ({
           maLo: String(b.MaLo),
+          maKho: String(b.MaKho || ""),
           sanPham: b.TenSanPham || "",
           soLuong: Number(b.SoLuong) || 0,
           ngayNhap: b.CapNhatCuoi ? new Date(b.CapNhatCuoi).toLocaleDateString("vi-VN") : "",
@@ -1267,6 +1391,35 @@ export default function DailyApp() {
     }
   }
 
+  function reloadInventory() {
+    if (!maDaiLy) return;
+    fetch(`/api/xuat-nhap-kho/ton-kho/${maDaiLy}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        setInventory(data.map(b => ({
+          maLo: String(b.MaLo),
+          maKho: String(b.MaKho || ""),
+          sanPham: b.TenSanPham || "",
+          soLuong: Number(b.SoLuong) || 0,
+          ngayNhap: b.CapNhatCuoi ? new Date(b.CapNhatCuoi).toLocaleDateString("vi-VN") : "",
+          status: Number(b.SoLuong) <= 0 ? "out" : Number(b.SoLuong) < 10 ? "low" : "in_stock",
+        })));
+      })
+      .catch(console.error);
+  }
+
+  async function handleDeleteInventory(b: InventoryBatch) {
+    if (!window.confirm(`Xóa "${b.sanPham}" khỏi kho?`)) return;
+    try {
+      const r = await fetch("/api/KhoHang/xoa-ton-kho", {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ MaKho: Number(b.maKho), MaLo: Number(b.maLo) }),
+      });
+      if (!r.ok) throw new Error((await r.json()).message);
+      reloadInventory();
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi xóa"); }
+  }
+
   function reloadQuality() {
     if (!maDaiLy) return;
     fetch(`/api/kiem-dinh/dai-ly/${maDaiLy}`)
@@ -1370,6 +1523,8 @@ export default function DailyApp() {
             onNewWarehouse={() => setModal("warehouse")}
             onEditWarehouse={w => { setEditTarget(w); setModal("warehouse-edit"); }}
             onDeleteWarehouse={handleDeleteWarehouse}
+            onEditInventory={b => { setEditTarget(b); setModal("inventory-edit"); }}
+            onDeleteInventory={handleDeleteInventory}
           />
         )}
         {section === "quality" && (
@@ -1384,6 +1539,7 @@ export default function DailyApp() {
       {(modal === "receipt" || modal === "receipt-edit") && <ReceiptModal receipt={modal === "receipt-edit" ? editTarget as ImportReceipt : null} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={() => { reloadReceipts(); }} />}
       {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadWarehouses} />}
       {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} inventory={inventory} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadQuality} />}
+      {modal === "inventory-edit" && editTarget && <InventoryEditModal batch={editTarget as InventoryBatch} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadInventory} />}
       {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} onEdit={() => setModal("edit-profile")} />}
       {modal === "edit-profile" && <EditProfileModal user={user} onClose={() => setModal(null)} onSaved={(u) => setUserInfo(prev => ({ ...prev, ...u }))} />}
     </div>
