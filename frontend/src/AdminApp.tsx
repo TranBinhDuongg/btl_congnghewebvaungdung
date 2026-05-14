@@ -293,17 +293,24 @@ function DaiLySection({ list, onAdd, onEdit, onDelete }: {
   list: DaiLy[]; onAdd: () => void; onEdit: (u: DaiLy) => void; onDelete: (id: number, ten: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const filtered = list.filter(u => !search || u.TenDaiLy?.toLowerCase().includes(search.toLowerCase()));
+  const filtered = list.filter(u =>
+    !search ||
+    u.TenDaiLy?.toLowerCase().includes(search.toLowerCase()) ||
+    u.Email?.toLowerCase().includes(search.toLowerCase()) ||
+    u.SoDienThoai?.includes(search) ||
+    u.DiaChi?.toLowerCase().includes(search.toLowerCase())
+  );
   return (
     <div className="u-fade-in">
       <div className="u-flex u-items-center u-justify-between u-mb-6">
         <div><h1 className="page-title">🏪 Quản lý đại lý</h1></div>
         <div className="u-flex u-gap-3 u-items-center">
-          <SearchBar value={search} onChange={setSearch} placeholder="Tìm theo tên đại lý..." />
+          <SearchBar value={search} onChange={setSearch} placeholder="Tìm theo tên, email, SĐT, địa chỉ..." />
           <PrimaryBtn onClick={onAdd}>+ Thêm đại lý</PrimaryBtn>
         </div>
       </div>
       <Panel>
+        {search && <p className="u-text-sm u-text-muted u-mb-3">{filtered.length} / {list.length} kết quả</p>}
         <StyledTable headers={["Mã", "Tên đại lý", "Email", "SĐT", "Địa chỉ", "Hành động"]}>
           {filtered.length === 0 ? <EmptyRow cols={6} /> : filtered.map(u => (
             <tr key={u.MaDaiLy}>
