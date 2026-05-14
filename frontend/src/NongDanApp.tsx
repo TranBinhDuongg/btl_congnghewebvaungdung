@@ -540,8 +540,27 @@ function KhoSection({ batches, orders, onEdit, onDelete }: { batches: Batch[]; o
   const [detailBatch, setDetailBatch] = useState<Batch | null>(null);
   const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [farmFilter, setFarmFilter] = useState("all");
+  const [exportSearch, setExportSearch] = useState("");
+  const [exportAgentFilter, setExportAgentFilter] = useState("all");
 
-  const filtered = filterStatus === "all" ? batches : batches.filter(b => b.status === filterStatus);
+  const uniqueFarms = Array.from(new Map(batches.map(b => [b.farmId, b.farmName])).entries());
+  const uniqueAgents = Array.from(new Set(exported.map(o => o.agentName).filter(Boolean)));
+
+  const filteredExported = exported.filter(o => {
+    const matchSearch = !exportSearch || o.id.includes(exportSearch) || o.agentName?.toLowerCase().includes(exportSearch.toLowerCase());
+    const matchAgent = exportAgentFilter === "all" || o.agentName === exportAgentFilter;
+    return matchSearch && matchAgent;
+  });
+
+  const filtered = batches.filter(b => {
+    const matchStatus = filterStatus === "all" || b.status === filterStatus;
+    const matchSearch = !search || b.product.toLowerCase().includes(search.toLowerCase());
+    const matchFarm = farmFilter === "all" || b.farmId === farmFilter;
+    return matchStatus && matchSearch && matchFarm;
+  });
+
   const tongSL = batches.reduce((s, b) => s + b.soLuongHienTai, 0);
   const tongGiaTri = batches.reduce((s, b) => s + (b.giaTien ? b.giaTien * b.soLuongHienTai : 0), 0);
   const sapHet = batches.filter(b => daysUntil(b.expiry) <= 14).length;
@@ -560,14 +579,27 @@ function KhoSection({ batches, orders, onEdit, onDelete }: { batches: Batch[]; o
         <Panel style={{ gridColumn: "1 / -1" }}>
           <div className="panel-title u-flex u-flex-wrap u-gap-4 u-items-center u-mb-2">
             <span>📥 Tồn kho</span>
-            <select className="select" style={{ width: "auto", minWidth: 160, fontSize: 13 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          </div>
+          <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+            <input
+              className="input"
+              style={{ width: 220, flex: "none" }}
+              placeholder="Tìm theo tên sản phẩm..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            <select className="select" style={{ width: 180, flex: "none" }} value={farmFilter} onChange={e => setFarmFilter(e.target.value)}>
+              <option value="all">Tất cả trang trại</option>
+              {uniqueFarms.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+            <select className="select" style={{ width: 170, flex: "none" }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
               <option value="all">Tất cả trạng thái</option>
               <option value="tai_trang_trai">Tại trang trại</option>
               <option value="da_xuat">Đã xuất</option>
               <option value="het_hang">Hết hàng</option>
             </select>
+            <span className="u-text-sm u-text-muted">{filtered.length} / {batches.length} lô</span>
           </div>
-          <p className="page-subtitle u-mb-4">Lô sản phẩm đang lưu kho — {filtered.length} lô</p>
           {filtered.length === 0 ? (
             <p className="empty-msg">Không có lô sản phẩm nào{filterStatus !== "all" ? " với trạng thái này" : ""}</p>
           ) : (
@@ -607,11 +639,31 @@ function KhoSection({ batches, orders, onEdit, onDelete }: { batches: Batch[]; o
 
         <Panel style={{ gridColumn: "1 / -1" }}>
           <div className="panel-title u-mb-2">📤 Lịch sử xuất hàng</div>
-          <p className="page-subtitle u-mb-4">Hàng đã xuất cho Đại lý — {exported.length} đơn</p>
+          <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+            <input
+              className="input"
+              style={{ width: 200, flex: "none" }}
+              placeholder="Tìm mã đơn, đại lý..."
+              value={exportSearch}
+              onChange={e => setExportSearch(e.target.value)}
+            />
+            <select
+              className="select"
+              style={{ width: 180, flex: "none" }}
+              value={exportAgentFilter}
+              onChange={e => setExportAgentFilter(e.target.value)}
+            >
+              <option value="all">Tất cả đại lý</option>
+              {uniqueAgents.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            <span className="u-text-sm u-text-muted">{filteredExported.length} / {exported.length} đơn</span>
+          </div>
           <StyledTable headers={["Mã đơn", "Mã lô", "Số lượng", "Đại lý", "Ngày", ""]}>
             {exported.length === 0
               ? <tr><td colSpan={6} className="empty-msg">Chưa có lịch sử xuất hàng</td></tr>
-              : exported.map(o => (
+              : filteredExported.length === 0
+              ? <tr><td colSpan={6} className="empty-msg">Không tìm thấy kết quả</td></tr>
+              : filteredExported.map(o => (
                 <tr key={o.id}>
                   <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
                   <Td>{o.batchId}</Td>
