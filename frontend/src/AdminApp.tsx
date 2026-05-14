@@ -248,17 +248,25 @@ function NongDanSection({ list, onAdd, onEdit, onDelete }: {
   list: NongDan[]; onAdd: () => void; onEdit: (u: NongDan) => void; onDelete: (id: number, ten: string) => void;
 }) {
   const [search, setSearch] = useState("");
-  const filtered = list.filter(u => !search || u.HoTen?.toLowerCase().includes(search.toLowerCase()) || u.TenDangNhap?.toLowerCase().includes(search.toLowerCase()));
+  const filtered = list.filter(u =>
+    !search ||
+    u.HoTen?.toLowerCase().includes(search.toLowerCase()) ||
+    u.TenDangNhap?.toLowerCase().includes(search.toLowerCase()) ||
+    u.Email?.toLowerCase().includes(search.toLowerCase()) ||
+    u.SoDienThoai?.includes(search) ||
+    u.DiaChi?.toLowerCase().includes(search.toLowerCase())
+  );
   return (
     <div className="u-fade-in">
       <div className="u-flex u-items-center u-justify-between u-mb-6">
         <div><h1 className="page-title">🌾 Quản lý nông dân</h1></div>
         <div className="u-flex u-gap-3 u-items-center">
-          <SearchBar value={search} onChange={setSearch} placeholder="Tìm theo tên, tài khoản..." />
+          <SearchBar value={search} onChange={setSearch} placeholder="Tìm theo tên, tài khoản, email, SĐT, địa chỉ..." />
           <PrimaryBtn onClick={onAdd}>+ Thêm nông dân</PrimaryBtn>
         </div>
       </div>
       <Panel>
+        {search && <p className="u-text-sm u-text-muted u-mb-3">{filtered.length} / {list.length} kết quả</p>}
         <StyledTable headers={["Mã", "Họ tên", "Tài khoản", "Email", "SĐT", "Địa chỉ", "Hành động"]}>
           {filtered.length === 0 ? <EmptyRow cols={7} /> : filtered.map(u => (
             <tr key={u.MaNongDan}>
