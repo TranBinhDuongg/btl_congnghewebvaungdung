@@ -183,17 +183,40 @@ function Dashboard({ farms, batches, orders }: { farms: Farm[]; batches: Batch[]
 }
 
 function FarmsSection({ farms, onNew, onEdit, onDelete }: { farms: Farm[]; onNew: () => void; onEdit: (f: Farm) => void; onDelete: (id: string) => void }) {
+  const [search, setSearch] = useState("");
+
+  const filtered = farms.filter(f => {
+    const q = search.toLowerCase();
+    return (
+      f.name.toLowerCase().includes(q) ||
+      f.address.toLowerCase().includes(q) ||
+      (f.cert || "").toLowerCase().includes(q)
+    );
+  });
+
   return (
     <Panel>
       <div className="panel-title u-flex u-flex-wrap u-gap-4 u-items-center">
         <span>Quản lý trang trại</span>
         <PrimaryBtn onClick={onNew}>+ Thêm trang trại</PrimaryBtn>
       </div>
+      <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+        <input
+          className="input"
+          style={{ width: 260, flex: "none" }}
+          placeholder="Tìm theo tên, địa chỉ, chứng nhận..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <span className="u-text-sm u-text-muted">{filtered.length} / {farms.length} trang trại</span>
+      </div>
       {farms.length === 0 ? (
         <p className="empty-msg">Chưa có trang trại nào</p>
+      ) : filtered.length === 0 ? (
+        <p className="empty-msg">Không tìm thấy trang trại nào</p>
       ) : (
         <StyledTable headers={["ID", "Tên trang trại", "Địa chỉ", "Chứng nhận", "Hành động"]}>
-          {farms.map(f => (
+          {filtered.map(f => (
             <tr key={f.id}>
               <Td><code className="u-text-sm u-text-primary u-font-bold">#{f.id}</code></Td>
               <Td><b>{f.name}</b></Td><Td>{f.address}</Td>
@@ -213,17 +236,51 @@ function FarmsSection({ farms, onNew, onEdit, onDelete }: { farms: Farm[]; onNew
 }
 
 function BatchesSection({ batches, onNew, onEdit, onDelete }: { batches: Batch[]; onNew: () => void; onEdit: (b: Batch) => void; onDelete: (id: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [farmFilter, setFarmFilter] = useState("all");
+
+  const uniqueFarms = Array.from(new Map(batches.map(b => [b.farmId, b.farmName])).entries());
+
+  const filtered = batches.filter(b => {
+    const matchSearch = !search || b.product.toLowerCase().includes(search.toLowerCase());
+    const matchFarm = farmFilter === "all" || b.farmId === farmFilter;
+    return matchSearch && matchFarm;
+  });
+
   return (
     <Panel>
       <div className="panel-title u-flex u-flex-wrap u-gap-4 u-items-center">
         <span>Quản lý lô sản phẩm</span>
         <PrimaryBtn onClick={onNew}>+ Đăng ký lô mới</PrimaryBtn>
       </div>
+      <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+        <input
+          className="input"
+          style={{ width: 240, flex: "none" }}
+          placeholder="Tìm theo tên sản phẩm..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select
+          className="select"
+          style={{ width: 200, flex: "none" }}
+          value={farmFilter}
+          onChange={e => setFarmFilter(e.target.value)}
+        >
+          <option value="all">Tất cả trang trại</option>
+          {uniqueFarms.map(([id, name]) => (
+            <option key={id} value={id}>{name}</option>
+          ))}
+        </select>
+        <span className="u-text-sm u-text-muted">{filtered.length} / {batches.length} lô</span>
+      </div>
       {batches.length === 0 ? (
         <p className="empty-msg">Chưa có lô sản phẩm nào</p>
+      ) : filtered.length === 0 ? (
+        <p className="empty-msg">Không tìm thấy lô sản phẩm nào</p>
       ) : (
         <StyledTable headers={["Mã lô", "Trang trại", "Sản phẩm", "Số lượng", "Giá/kg", "Thu hoạch", "Hạn dùng", "Chứng nhận", "Trạng thái", "Hành động"]}>
-          {batches.map(b => (
+          {filtered.map(b => (
             <tr key={b.id}>
               <Td><code className="u-text-sm u-text-primary u-font-bold">#{b.id}</code></Td>
               <Td>{b.farmName}</Td>
@@ -310,14 +367,66 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
 
 function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]; onAccept: (id: string) => void; onShip: (id: string) => void; onCancel: (id: string) => void }) {
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [agentFilter, setAgentFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const uniqueAgents = Array.from(new Set(orders.map(o => o.agentName).filter(Boolean)));
+
+  const filtered = orders.filter(o => {
+    const matchSearch = !search || o.id.includes(search);
+    const matchAgent = agentFilter === "all" || o.agentName === agentFilter;
+    const matchFrom = !dateFrom || o.date >= dateFrom;
+    const matchTo = !dateTo || o.date <= dateTo;
+    return matchSearch && matchAgent && matchFrom && matchTo;
+  });
+
   return (
     <Panel>
       <div className="panel-title">Đơn hàng từ Đại lý</div>
+      <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+        <input
+          className="input"
+          style={{ width: 160, flex: "none" }}
+          placeholder="Tìm mã đơn..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select
+          className="select"
+          style={{ width: 180, flex: "none" }}
+          value={agentFilter}
+          onChange={e => setAgentFilter(e.target.value)}
+        >
+          <option value="all">Tất cả đại lý</option>
+          {uniqueAgents.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <input
+          className="input"
+          type="date"
+          style={{ width: 150, flex: "none" }}
+          value={dateFrom}
+          onChange={e => setDateFrom(e.target.value)}
+          title="Từ ngày"
+        />
+        <input
+          className="input"
+          type="date"
+          style={{ width: 150, flex: "none" }}
+          value={dateTo}
+          onChange={e => setDateTo(e.target.value)}
+          title="Đến ngày"
+        />
+        <span className="u-text-sm u-text-muted">{filtered.length} / {orders.length} đơn</span>
+      </div>
       {orders.length === 0 ? (
         <p className="empty-msg">Chưa có đơn hàng nào</p>
+      ) : filtered.length === 0 ? (
+        <p className="empty-msg">Không tìm thấy đơn hàng nào</p>
       ) : (
         <StyledTable headers={["Mã đơn", "Đại lý", "Số lượng", "Ngày đặt", "Trạng thái", "Hành động"]}>
-          {orders.map(o => (
+          {filtered.map(o => (
             <tr key={o.id}>
               <Td><code className="u-text-sm u-text-primary u-font-bold">#{o.id}</code></Td>
               <Td><b>{o.agentName || "—"}</b></Td>
