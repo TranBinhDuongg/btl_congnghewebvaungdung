@@ -482,6 +482,8 @@ export default function SieuThiApp() {
 
   const [khoList, setKhoList] = useState<ApiKho[]>([]);
   const [khoLoading, setKhoLoading] = useState(false);
+  const [khoSearch, setKhoSearch] = useState("");
+  const [khoWarehouseFilter, setKhoWarehouseFilter] = useState("all");
 
   const [profileForm, setProfileForm] = useState({ hoTen: fullName, sdt: authUser?.soDienThoai || "", email: authUser?.email || "", diaChi: authUser?.diaChi || "" });
   const [profileErr, setProfileErr] = useState("");
@@ -758,54 +760,72 @@ export default function SieuThiApp() {
                 <div><div className="stat-value">{new Set(khoList.map(k => k.TenSanPham).filter(Boolean)).size}</div><div className="stat-label">Loại sản phẩm</div></div>
               </div>
             </div>
+            <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+              <input
+                className="input"
+                style={{ width: 240, flex: "none" }}
+                placeholder="Tìm theo tên sản phẩm..."
+                value={khoSearch}
+                onChange={e => setKhoSearch(e.target.value)}
+              />
+              <select
+                className="select"
+                style={{ width: 200, flex: "none" }}
+                value={khoWarehouseFilter}
+                onChange={e => setKhoWarehouseFilter(e.target.value)}
+              >
+                <option value="all">Tất cả kho</option>
+                {Array.from(new Set(khoList.map(k => k.MaKho))).map(maKho => {
+                  const tenKho = khoList.find(k => k.MaKho === maKho)?.TenKho || `Kho #${maKho}`;
+                  return <option key={maKho} value={String(maKho)}>{tenKho}</option>;
+                })}
+              </select>
+              {(khoSearch || khoWarehouseFilter !== "all") && (
+                <button className="btn btn-secondary u-text-sm" onClick={() => { setKhoSearch(""); setKhoWarehouseFilter("all"); }}>Xóa bộ lọc</button>
+              )}
+            </div>
             {khoLoading && <p className="empty-msg">Đang tải...</p>}
-            {Array.from(new Set(khoList.map(k => k.MaKho))).map(maKho => {
-              const items = khoList.filter(k => k.MaKho === maKho);
-              const khoInfo = items[0];
-              return (
-                <Panel key={maKho} className="u-mb-4">
-                  <div className="u-flex u-justify-between u-items-center u-mb-3">
-                    <div>
-                      <span className="u-font-black u-text-dark">🏪 {khoInfo?.TenKho}</span>
-                      {khoInfo?.DiaChi && <span className="u-text-sm u-text-muted" style={{ marginLeft: 10 }}>📍 {khoInfo.DiaChi}</span>}
-                      <span style={{ marginLeft: 10 }}><StatusBadge status={khoInfo?.TrangThai || "hoat_dong"} /></span>
+            {Array.from(new Set(khoList.map(k => k.MaKho)))
+              .filter(maKho => khoWarehouseFilter === "all" || String(maKho) === khoWarehouseFilter)
+              .map(maKho => {
+                const items = khoList.filter(k => k.MaKho === maKho);
+                const khoInfo = items[0];
+                const filteredItems = items.filter(k => k.TenSanPham && (!khoSearch || k.TenSanPham.toLowerCase().includes(khoSearch.toLowerCase())));
+                if (khoSearch && filteredItems.length === 0) return null;
+                return (
+                  <Panel key={maKho} className="u-mb-4">
+                    <div className="u-flex u-justify-between u-items-center u-mb-3">
+                      <div>
+                        <span className="u-font-black u-text-dark">🏪 {khoInfo?.TenKho}</span>
+                        {khoInfo?.DiaChi && <span className="u-text-sm u-text-muted" style={{ marginLeft: 10 }}>📍 {khoInfo.DiaChi}</span>}
+                        <span style={{ marginLeft: 10 }}><StatusBadge status={khoInfo?.TrangThai || "hoat_dong"} /></span>
+                        {khoSearch && <span className="u-text-sm u-text-muted" style={{ marginLeft: 10 }}>{filteredItems.length} kết quả</span>}
+                      </div>
+                      <div className="u-flex u-gap-2">
+                        <ActionBtn onClick={() => { setEditKho(khoInfo); setModal("kho"); }} color="var(--primary)">Sửa</ActionBtn>
+                        <ActionBtn onClick={() => handleXoaKho(maKho)} color="#dc2626">Xóa</ActionBtn>
+                      </div>
                     </div>
-                    <div className="u-flex u-gap-2">
-                      <ActionBtn onClick={() => { setEditKho(khoInfo); setModal("kho"); }} color="var(--primary)">Sửa</ActionBtn>
-                      <ActionBtn onClick={() => handleXoaKho(maKho)} color="#dc2626">Xóa</ActionBtn>
-                    </div>
-                  </div>
-                  <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Cập nhật cuối", "Hành động"]}>
-                    {items.filter(k => k.TenSanPham).map((k, i) => (
-                      <tr key={`${k.MaKho}-${k.MaLo}-${i}`}>
-                        <Td><b>{k.TenSanPham}</b></Td>
-                        <Td className="u-text-muted">{k.DonViTinh || "--"}</Td>
-                        <Td>
-                          <span className="badge" style={{ background: (k.SoLuong || 0) > 0 ? "rgba(37,99,235,0.1)" : "#fee2e2", color: (k.SoLuong || 0) > 0 ? "var(--primary)" : "var(--danger)" }}>
-                            {(k.SoLuong || 0).toLocaleString("vi-VN")}
-                          </span>
-                        </Td>
-                        <Td className="u-text-muted u-text-sm">{k.CapNhatCuoi ? new Date(k.CapNhatCuoi).toLocaleDateString("vi-VN") : "--"}</Td>
-                        <Td>
-                          <ActionBtn onClick={() => setDetailKhoItem(k)} color="#6366f1">Xem</ActionBtn>
-                          <ActionBtn onClick={() => setEditKhoItem(k)} color="var(--primary)">Sửa</ActionBtn>
-                          <ActionBtn onClick={async () => {
-                            if (!window.confirm(`Xóa "${k.TenSanPham}" khỏi kho?`)) return;
-                            try {
-                              await apiFetch("/api/KhoHang/xoa-ton-kho", { method: "DELETE", body: JSON.stringify({ MaKho: k.MaKho, MaLo: k.MaLo }) });
-                              loadKho();
-                            } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi"); }
-                          }} color="#dc2626">Xóa</ActionBtn>
-                        </Td>
-                      </tr>
-                    ))}
-                    {items.filter(k => k.TenSanPham).length === 0 && (
-                      <tr><td colSpan={4} className="empty-msg">Kho trống</td></tr>
-                    )}
-                  </StyledTable>
-                </Panel>
-              );
-            })}
+                    <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Cập nhật cuối"]}>
+                      {filteredItems.map((k, i) => (
+                        <tr key={`${k.MaKho}-${k.MaLo}-${i}`}>
+                          <Td><b>{k.TenSanPham}</b></Td>
+                          <Td className="u-text-muted">{k.DonViTinh || "--"}</Td>
+                          <Td>
+                            <span className="badge" style={{ background: (k.SoLuong || 0) > 0 ? "rgba(37,99,235,0.1)" : "#fee2e2", color: (k.SoLuong || 0) > 0 ? "var(--primary)" : "var(--danger)" }}>
+                              {(k.SoLuong || 0).toLocaleString("vi-VN")}
+                            </span>
+                          </Td>
+                          <Td className="u-text-muted u-text-sm">{k.CapNhatCuoi ? new Date(k.CapNhatCuoi).toLocaleDateString("vi-VN") : "--"}</Td>
+                        </tr>
+                      ))}
+                      {filteredItems.length === 0 && (
+                        <tr><td colSpan={4} className="empty-msg">Kho trống</td></tr>
+                      )}
+                    </StyledTable>
+                  </Panel>
+                );
+              })}
             {khoList.length === 0 && !khoLoading && (
               <Panel><p className="empty-msg">Chưa có kho nào. Nhấn "+ Tạo kho mới" để bắt đầu.</p></Panel>
             )}
