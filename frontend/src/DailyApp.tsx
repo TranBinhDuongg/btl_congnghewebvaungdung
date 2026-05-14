@@ -469,10 +469,10 @@ function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehou
   return (
     <div className="u-flex u-flex-col u-gap-4 u-fade-in">
       <div className="stat-grid">
-        <StatCard icon="P" label="Tổng lô trong kho" value={inventory.length} accent="var(--primary)" />
-        <StatCard icon="T" label="Tổng tồn kho" value={`${totalStock.toLocaleString("vi-VN")} kg`} accent="var(--success)" />
-        <StatCard icon="!" label="Sắp hết hàng" value={lowCount} accent="var(--warning)" />
-        <StatCard icon="X" label="Hết hàng" value={outCount} accent="var(--danger)" />
+        <StatCard icon="📋" label="Tổng lô trong kho" value={inventory.length} accent="var(--primary)" />
+        <StatCard icon="📦" label="Tổng tồn kho" value={`${totalStock.toLocaleString("vi-VN")} kg`} accent="var(--success)" />
+        <StatCard icon="⚠️" label="Sắp hết hàng" value={lowCount} accent="var(--warning)" />
+        <StatCard icon="❌" label="Hết hàng" value={outCount} accent="var(--danger)" />
       </div>
 
       <Panel>
