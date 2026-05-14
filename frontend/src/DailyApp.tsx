@@ -679,17 +679,57 @@ function QualitySection({ quality, onNew, onEdit, onDelete }: {
   quality: QualityCheck[]; onNew: () => void; onEdit: (q: QualityCheck) => void; onDelete: (id: string) => void;
 }) {
   const [detail, setDetail] = useState<QualityCheck | null>(null);
+  const [search, setSearch] = useState("");
+  const [resultFilter, setResultFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const filtered = quality.filter(q => {
+    const matchSearch = !search ||
+      q.maKiemDinh.includes(search) ||
+      q.maLo.includes(search) ||
+      (q.tenSanPham || "").toLowerCase().includes(search.toLowerCase()) ||
+      q.nguoiKiem.toLowerCase().includes(search.toLowerCase());
+    const matchResult = resultFilter === "all" || q.ketQua === resultFilter;
+    const matchStatus = statusFilter === "all" || (q.trangThai || "cho_duyet") === statusFilter;
+    return matchSearch && matchResult && matchStatus;
+  });
+
   return (
     <Panel className="u-fade-in">
       <div className="u-flex u-justify-between u-items-center u-mb-4">
         <SectionTitle>🔬 Phiếu kiểm định chất lượng</SectionTitle>
         <PrimaryBtn onClick={onNew}>+ Thêm kiểm định</PrimaryBtn>
       </div>
+      <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+        <input
+          className="input"
+          style={{ width: 240, flex: "none" }}
+          placeholder="Tìm mã KĐ, mã lô, sản phẩm, người kiểm..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select className="select" style={{ width: 160, flex: "none" }} value={resultFilter} onChange={e => setResultFilter(e.target.value)}>
+          <option value="all">Tất cả kết quả</option>
+          <option value="dat">Đạt</option>
+          <option value="khong_dat">Không đạt</option>
+          <option value="A">Loại A</option>
+          <option value="B">Loại B</option>
+          <option value="C">Loại C</option>
+        </select>
+        <select className="select" style={{ width: 160, flex: "none" }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="all">Tất cả trạng thái</option>
+          <option value="hoan_thanh">Hoàn thành</option>
+          <option value="cho_duyet">Chờ duyệt</option>
+        </select>
+        <span className="u-text-sm u-text-muted">{filtered.length} / {quality.length} phiếu</span>
+      </div>
       {quality.length === 0 ? (
         <p className="empty-msg">Chưa có phiếu kiểm định nào</p>
+      ) : filtered.length === 0 ? (
+        <p className="empty-msg">Không tìm thấy phiếu kiểm định nào</p>
       ) : (
         <StyledTable headers={["Mã KĐ", "Mã lô", "Sản phẩm", "Người kiểm", "Kết quả", "Trạng thái", "Ghi chú", "Thao tác"]}>
-          {quality.map(q => (
+          {filtered.map(q => (
             <tr key={q.maKiemDinh}>
               <td><code className="u-text-sm u-text-muted">#{q.maKiemDinh}</code></td>
               <td className="u-font-bold">{q.maLo}</td>
