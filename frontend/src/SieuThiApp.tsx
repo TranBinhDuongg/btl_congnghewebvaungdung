@@ -372,6 +372,90 @@ function EditOrderModal({ order, onClose, onSaved }: { order: ApiDonHang; onClos
   );
 }
 
+// Kho Item Detail Modal
+function KhoItemDetailModal({ item, onClose, onEdit, onDelete }: { item: ApiKho; onClose: () => void; onEdit: (k: ApiKho) => void; onDelete: (k: ApiKho) => void }) {
+  return (
+    <Modal title={`Chi tiết sản phẩm kho — Lô #${item.MaLo}`} onClose={onClose} wide>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 18px", background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)", borderRadius: 12, marginBottom: 20 }}>
+        <div style={{ width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg, var(--primary), #4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 20 }}>K</div>
+        <div style={{ flex: 1 }}>
+          <div className="u-font-black u-text-lg u-text-dark">{item.TenSanPham || "--"}</div>
+          <div className="u-text-sm u-text-muted">Kho: {item.TenKho} — Lô #{item.MaLo}</div>
+        </div>
+        <StatusBadge status={item.TrangThai || "hoat_dong"} />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+        <div style={{ padding: "14px 16px", background: "#f0f9ff", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">Mã lô</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#2563eb" }}>#{item.MaLo}</div>
+        </div>
+        <div style={{ padding: "14px 16px", background: "#f0fdf4", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">Số lượng tồn</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#16a34a" }}>{(item.SoLuong || 0).toLocaleString("vi-VN")} {item.DonViTinh || "kg"}</div>
+        </div>
+        <div style={{ padding: "14px 16px", background: "#fefce8", borderRadius: 10, textAlign: "center" }}>
+          <div className="u-text-sm u-text-muted">Cập nhật cuối</div>
+          <div className="u-font-black u-text-lg" style={{ color: "#d97706" }}>{item.CapNhatCuoi ? new Date(item.CapNhatCuoi).toLocaleDateString("vi-VN") : "--"}</div>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+        {[
+          ["Sản phẩm", item.TenSanPham || "--"],
+          ["Đơn vị", item.DonViTinh || "--"],
+          ["Kho", item.TenKho],
+          ["Mã kho", `#${item.MaKho}`],
+        ].map(([k, v]) => (
+          <div key={k} style={{ padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+            <div className="u-text-sm u-text-muted">{k}</div>
+            <div className="u-font-bold u-text-dark" style={{ marginTop: 3 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-4 u-border-t">
+        <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+        <ActionBtn onClick={() => { onClose(); onEdit(item); }} color="var(--primary)">Sửa</ActionBtn>
+        <ActionBtn onClick={() => { if (window.confirm(`Xóa "${item.TenSanPham}" khỏi kho?`)) { onClose(); onDelete(item); } }} color="#dc2626">Xóa</ActionBtn>
+      </div>
+    </Modal>
+  );
+}
+
+// Kho Item Edit Modal
+function KhoItemEditModal({ item, onClose, onSaved }: { item: ApiKho; onClose: () => void; onSaved: () => void }) {
+  const [soLuong, setSoLuong] = useState(String(item.SoLuong || 0));
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSave() {
+    if (!soLuong || Number(soLuong) < 0) return setErr("Số lượng không hợp lệ");
+    setLoading(true); setErr("");
+    try {
+      await apiFetch("/api/KhoHang/cap-nhat-ton-kho", {
+        method: "PUT", body: JSON.stringify({ MaKho: item.MaKho, MaLo: item.MaLo, SoLuong: Number(soLuong) }),
+      });
+      onSaved(); onClose();
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Lỗi cập nhật"); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <Modal title={`Sửa tồn kho — ${item.TenSanPham}`} onClose={onClose}>
+      {err && <div className="error-msg">{err}</div>}
+      <div className="u-bg-light u-border u-rounded-md u-mb-4 u-text-sm u-text-muted" style={{ padding: "12px 16px" }}>
+        <div className="u-font-black u-text-dark u-mb-1">{item.TenSanPham}</div>
+        Kho: {item.TenKho} | Lô: #{item.MaLo} | Hiện tại: {item.SoLuong || 0} {item.DonViTinh || "kg"}
+      </div>
+      <FormField label="Số lượng mới *">
+        <input className="input" type="number" min="0" step="0.01" value={soLuong} onChange={e => setSoLuong(e.target.value)} />
+      </FormField>
+      <div className="u-flex u-justify-end u-gap-3 u-mt-6 u-py-6 u-border-t">
+        <button className="btn btn-secondary" onClick={onClose}>Hủy</button>
+        <PrimaryBtn onClick={handleSave} disabled={loading}>{loading ? "Đang lưu..." : "Lưu"}</PrimaryBtn>
+      </div>
+    </Modal>
+  );
+}
+
 // Main App
 export default function SieuThiApp() {
   const authUser = getCurrentUser();
@@ -387,6 +471,8 @@ export default function SieuThiApp() {
   const [editOrder, setEditOrder] = useState<ApiDonHang | null>(null);
   const [detailOrder, setDetailOrder] = useState<ApiDonHang | null>(null);
   const [editKho, setEditKho] = useState<ApiKho | undefined>(undefined);
+  const [detailKhoItem, setDetailKhoItem] = useState<ApiKho | null>(null);
+  const [editKhoItem, setEditKhoItem] = useState<ApiKho | null>(null);
 
   const [apiOrders, setApiOrders] = useState<ApiDonHang[]>([]);
   const [apiOrdersLoading, setApiOrdersLoading] = useState(false);
@@ -689,7 +775,7 @@ export default function SieuThiApp() {
                       <ActionBtn onClick={() => handleXoaKho(maKho)} color="#dc2626">Xóa</ActionBtn>
                     </div>
                   </div>
-                  <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Cập nhật cuối", ""]}>
+                  <StyledTable headers={["Sản phẩm", "Đơn vị", "Số lượng", "Cập nhật cuối", "Hành động"]}>
                     {items.filter(k => k.TenSanPham).map((k, i) => (
                       <tr key={`${k.MaKho}-${k.MaLo}-${i}`}>
                         <Td><b>{k.TenSanPham}</b></Td>
@@ -701,14 +787,8 @@ export default function SieuThiApp() {
                         </Td>
                         <Td className="u-text-muted u-text-sm">{k.CapNhatCuoi ? new Date(k.CapNhatCuoi).toLocaleDateString("vi-VN") : "--"}</Td>
                         <Td>
-                          <ActionBtn onClick={async () => {
-                            const sl = prompt(`Nhập số lượng mới cho "${k.TenSanPham}":`, String(k.SoLuong || 0));
-                            if (sl === null) return;
-                            try {
-                              await apiFetch("/api/KhoHang/cap-nhat-ton-kho", { method: "PUT", body: JSON.stringify({ MaKho: k.MaKho, MaLo: k.MaLo, SoLuong: Number(sl) }) });
-                              loadKho();
-                            } catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi"); }
-                          }} color="var(--primary)">Sửa SL</ActionBtn>
+                          <ActionBtn onClick={() => setDetailKhoItem(k)} color="#6366f1">Xem</ActionBtn>
+                          <ActionBtn onClick={() => setEditKhoItem(k)} color="var(--primary)">Sửa</ActionBtn>
                           <ActionBtn onClick={async () => {
                             if (!window.confirm(`Xóa "${k.TenSanPham}" khỏi kho?`)) return;
                             try {
@@ -1026,6 +1106,18 @@ export default function SieuThiApp() {
             <PrimaryBtn onClick={saveProfile} disabled={profileLoading}>{profileLoading ? "Đang lưu..." : "Lưu"}</PrimaryBtn>
           </div>
         </Modal>
+      )}
+      {detailKhoItem && (
+        <KhoItemDetailModal item={detailKhoItem} onClose={() => setDetailKhoItem(null)}
+          onEdit={(k) => { setDetailKhoItem(null); setEditKhoItem(k); }}
+          onDelete={async (k) => {
+            try { await apiFetch("/api/KhoHang/xoa-ton-kho", { method: "DELETE", body: JSON.stringify({ MaKho: k.MaKho, MaLo: k.MaLo }) }); loadKho(); }
+            catch (e: unknown) { alert(e instanceof Error ? e.message : "Lỗi"); }
+          }}
+        />
+      )}
+      {editKhoItem && (
+        <KhoItemEditModal item={editKhoItem} onClose={() => setEditKhoItem(null)} onSaved={loadKho} />
       )}
     </div>
   );
