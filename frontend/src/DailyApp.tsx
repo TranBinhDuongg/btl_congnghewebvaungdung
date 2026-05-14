@@ -293,6 +293,37 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailLoai, setDetailLoai] = useState<"import" | "retail">("import");
 
+  // Tìm kiếm phiếu nhập
+  const [importSearch, setImportSearch] = useState("");
+  const [importFarmerFilter, setImportFarmerFilter] = useState("all");
+  const [importDateFrom, setImportDateFrom] = useState("");
+  const [importDateTo, setImportDateTo] = useState("");
+
+  // Tìm kiếm phiếu xuất
+  const [retailSearch, setRetailSearch] = useState("");
+  const [retailStoreFilter, setRetailStoreFilter] = useState("all");
+  const [retailDateFrom, setRetailDateFrom] = useState("");
+  const [retailDateTo, setRetailDateTo] = useState("");
+
+  const uniqueFarmers = Array.from(new Set(receipts.map(r => r.tenNong).filter(Boolean)));
+  const uniqueStores = Array.from(new Set(retail.map(r => r.sieu_thi).filter(Boolean)));
+
+  const filteredReceipts = receipts.filter(r => {
+    const matchSearch = !importSearch || r.maPhieu.includes(importSearch) || (r.tenNong || "").toLowerCase().includes(importSearch.toLowerCase());
+    const matchFarmer = importFarmerFilter === "all" || r.tenNong === importFarmerFilter;
+    const matchFrom = !importDateFrom || r.ngayNhap >= importDateFrom;
+    const matchTo = !importDateTo || r.ngayNhap <= importDateTo;
+    return matchSearch && matchFarmer && matchFrom && matchTo;
+  });
+
+  const filteredRetail = retail.filter(r => {
+    const matchSearch = !retailSearch || r.maPhieu.includes(retailSearch) || (r.sieu_thi || "").toLowerCase().includes(retailSearch.toLowerCase());
+    const matchStore = retailStoreFilter === "all" || r.sieu_thi === retailStoreFilter;
+    const matchFrom = !retailDateFrom || r.ngayTao >= retailDateFrom;
+    const matchTo = !retailDateTo || r.ngayTao <= retailDateTo;
+    return matchSearch && matchStore && matchFrom && matchTo;
+  });
+
   const openDetail = (id: string, loai: "import" | "retail") => { setDetailId(id); setDetailLoai(loai); };
 
   return (
@@ -313,11 +344,29 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
       {tab === "import" && (
         <Panel>
           <SectionTitle>Phiếu nhập hàng từ Nông dân</SectionTitle>
+          <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+            <input
+              className="input"
+              style={{ width: 200, flex: "none" }}
+              placeholder="Tìm mã đơn, nông dân..."
+              value={importSearch}
+              onChange={e => setImportSearch(e.target.value)}
+            />
+            <select className="select" style={{ width: 180, flex: "none" }} value={importFarmerFilter} onChange={e => setImportFarmerFilter(e.target.value)}>
+              <option value="all">Tất cả nông dân</option>
+              {uniqueFarmers.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+            <input className="input" type="date" style={{ width: 150, flex: "none" }} value={importDateFrom} onChange={e => setImportDateFrom(e.target.value)} title="Từ ngày" />
+            <input className="input" type="date" style={{ width: 150, flex: "none" }} value={importDateTo} onChange={e => setImportDateTo(e.target.value)} title="Đến ngày" />
+            <span className="u-text-sm u-text-muted">{filteredReceipts.length} / {receipts.length} phiếu</span>
+          </div>
           {receipts.length === 0 ? (
             <p className="empty-msg">Chưa có phiếu nhập nào</p>
+          ) : filteredReceipts.length === 0 ? (
+            <p className="empty-msg">Không tìm thấy phiếu nhập nào</p>
           ) : (
             <StyledTable headers={["Mã đơn", "Nông dân", "Tổng SL", "Ghi chú", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-              {receipts.map(r => (
+              {filteredReceipts.map(r => (
                 <tr key={r.maPhieu}>
                   <td><code className="u-text-sm u-text-muted">#{r.maPhieu}</code></td>
                   <td className="u-font-bold">{r.tenNong || "—"}</td>
@@ -340,11 +389,29 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
       {tab === "retail" && (
         <Panel>
           <SectionTitle>Phiếu xuất hàng cho Siêu thị</SectionTitle>
+          <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+            <input
+              className="input"
+              style={{ width: 200, flex: "none" }}
+              placeholder="Tìm mã đơn, siêu thị..."
+              value={retailSearch}
+              onChange={e => setRetailSearch(e.target.value)}
+            />
+            <select className="select" style={{ width: 180, flex: "none" }} value={retailStoreFilter} onChange={e => setRetailStoreFilter(e.target.value)}>
+              <option value="all">Tất cả siêu thị</option>
+              {uniqueStores.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <input className="input" type="date" style={{ width: 150, flex: "none" }} value={retailDateFrom} onChange={e => setRetailDateFrom(e.target.value)} title="Từ ngày" />
+            <input className="input" type="date" style={{ width: 150, flex: "none" }} value={retailDateTo} onChange={e => setRetailDateTo(e.target.value)} title="Đến ngày" />
+            <span className="u-text-sm u-text-muted">{filteredRetail.length} / {retail.length} phiếu</span>
+          </div>
           {retail.length === 0 ? (
             <p className="empty-msg">Chưa có phiếu xuất nào</p>
+          ) : filteredRetail.length === 0 ? (
+            <p className="empty-msg">Không tìm thấy phiếu xuất nào</p>
           ) : (
             <StyledTable headers={["Mã đơn", "Siêu thị", "Tổng SL", "Ghi chú", "Ngày đặt", "Trạng thái", "Thao tác"]}>
-              {retail.map(r => (
+              {filteredRetail.map(r => (
                 <tr key={r.maPhieu}>
                   <td><code className="u-text-sm u-text-muted">#{r.maPhieu}</code></td>
                   <td className="u-font-bold">{r.sieu_thi || "—"}</td>
@@ -460,8 +527,25 @@ function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehou
 }) {
   const [detailBatch, setDetailBatch] = useState<InventoryBatch | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [warehouseFilter, setWarehouseFilter] = useState("all");
+  const [warehouseSearch, setWarehouseSearch] = useState("");
 
-  const filtered = filterStatus === "all" ? inventory : inventory.filter(b => b.status === filterStatus);
+  const uniqueWarehouses = Array.from(new Map(inventory.map(b => [b.maKho, b.maKho])).entries());
+
+  const filtered = inventory.filter(b => {
+    const matchStatus = filterStatus === "all" || b.status === filterStatus;
+    const matchSearch = !search || b.sanPham.toLowerCase().includes(search.toLowerCase()) || b.maLo.includes(search);
+    const matchWarehouse = warehouseFilter === "all" || b.maKho === warehouseFilter;
+    return matchStatus && matchSearch && matchWarehouse;
+  });
+
+  const filteredWarehouses = warehouses.filter(w =>
+    !warehouseSearch ||
+    w.tenKho.toLowerCase().includes(warehouseSearch.toLowerCase()) ||
+    w.diaChi.toLowerCase().includes(warehouseSearch.toLowerCase())
+  );
+
   const totalStock = inventory.reduce((s, b) => s + b.soLuong, 0);
   const lowCount = inventory.filter(b => b.status === "low").length;
   const outCount = inventory.filter(b => b.status === "out").length;
@@ -480,33 +564,61 @@ function InventorySection({ warehouses, inventory, onNewWarehouse, onEditWarehou
           <SectionTitle>Danh sách kho nhập hàng</SectionTitle>
           <PrimaryBtn onClick={onNewWarehouse}>+ Thêm kho</PrimaryBtn>
         </div>
+        <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+          <input
+            className="input"
+            style={{ width: 240, flex: "none" }}
+            placeholder="Tìm theo tên kho, địa chỉ..."
+            value={warehouseSearch}
+            onChange={e => setWarehouseSearch(e.target.value)}
+          />
+          <span className="u-text-sm u-text-muted">{filteredWarehouses.length} / {warehouses.length} kho</span>
+        </div>
         <StyledTable headers={["Mã kho", "Tên kho", "Địa chỉ", "SĐT", "Thao tác"]}>
-          {warehouses.map(w => (
-            <tr key={w.maKho}>
-              <td><code className="u-text-sm u-text-muted">{w.maKho}</code></td>
-              <td className="u-font-bold">{w.tenKho}</td>
-              <td>{w.diaChi}</td>
-              <td>{w.soDienThoai}</td>
-              <td>
-                <ActionBtn onClick={() => onEditWarehouse(w)} variant="primary">Sửa</ActionBtn>
-                <ActionBtn onClick={() => onDeleteWarehouse(w.maKho)} variant="danger">Xóa</ActionBtn>
-              </td>
-            </tr>
-          ))}
+          {filteredWarehouses.length === 0
+            ? <tr><td colSpan={5} className="empty-msg">Không tìm thấy kho nào</td></tr>
+            : filteredWarehouses.map(w => (
+              <tr key={w.maKho}>
+                <td><code className="u-text-sm u-text-muted">{w.maKho}</code></td>
+                <td className="u-font-bold">{w.tenKho}</td>
+                <td>{w.diaChi}</td>
+                <td>{w.soDienThoai}</td>
+                <td>
+                  <ActionBtn onClick={() => onEditWarehouse(w)} variant="primary">Sửa</ActionBtn>
+                  <ActionBtn onClick={() => onDeleteWarehouse(w.maKho)} variant="danger">Xóa</ActionBtn>
+                </td>
+              </tr>
+            ))}
         </StyledTable>
       </Panel>
       
       <Panel>
         <div className="u-flex u-justify-between u-items-center u-mb-4">
           <SectionTitle>Tồn kho hiện tại (theo lô)</SectionTitle>
-          <select className="select" style={{ width: "auto", minWidth: 160, fontSize: 13 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        </div>
+        <div className="u-flex u-flex-wrap u-gap-3 u-items-center u-mb-4">
+          <input
+            className="input"
+            style={{ width: 220, flex: "none" }}
+            placeholder="Tìm mã lô, tên sản phẩm..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <select className="select" style={{ width: 160, flex: "none" }} value={warehouseFilter} onChange={e => setWarehouseFilter(e.target.value)}>
+            <option value="all">Tất cả kho</option>
+            {uniqueWarehouses.map(([id]) => {
+              const w = warehouses.find(x => x.maKho === id);
+              return <option key={id} value={id}>{w ? w.tenKho : `Kho #${id}`}</option>;
+            })}
+          </select>
+          <select className="select" style={{ width: 160, flex: "none" }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="all">Tất cả trạng thái</option>
             <option value="in_stock">Còn hàng</option>
             <option value="low">Sắp hết</option>
             <option value="out">Hết hàng</option>
           </select>
+          <span className="u-text-sm u-text-muted">{filtered.length} / {inventory.length} lô</span>
         </div>
-        <p className="page-subtitle u-mb-4">Sản phẩm đang lưu kho — {filtered.length} lô</p>
         {filtered.length === 0 ? (
           <p className="empty-msg">Không có sản phẩm nào{filterStatus !== "all" ? " với trạng thái này" : ""}</p>
         ) : (
