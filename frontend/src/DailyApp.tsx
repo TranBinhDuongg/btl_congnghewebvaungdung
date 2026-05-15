@@ -12,7 +12,7 @@ export interface ImportReceipt {
   maPhieu: string; maLo: string; sanPham: string; soLuong: number;
   tenNong: string; khoNhap: string; khoNhapName?: string;
   ngayNhap: string; ghiChu?: string;
-  status: "created" | "pending" | "preparing" | "shipped" | "received";
+  status: "created" | "pending" | "preparing" | "shipped" | "received" | "da_nhan" | "hoan_thanh" | "da_huy";
 }
 export interface Warehouse { maKho: string; tenKho: string; diaChi: string; soDienThoai: string; }
 export interface InventoryBatch { maLo: string; maKho: string; sanPham: string; soLuong: number; ngayNhap: string; status: "in_stock" | "low" | "out"; }
@@ -128,8 +128,8 @@ function ActionBtn({ children, onClick, variant = "primary" }: { children: React
   );
 }
 
-function PrimaryBtn({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
-  return <button className="btn btn-primary" onClick={onClick}>{children}</button>;
+function PrimaryBtn({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) {
+  return <button className="btn btn-primary" onClick={onClick} disabled={disabled}>{children}</button>;
 }
 
 // ─── Modal shell ──────────────────────────────────────────────────────────────
@@ -284,10 +284,11 @@ function DailyOrderDetailModal({ maPhieu, loai, onClose }: { maPhieu: string; lo
   );
 }
 
-function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditReceipt, onDeleteReceipt, onAcceptRetail, onShipRetail }: {
+function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditReceipt, onDeleteReceipt, onAcceptRetail, onShipRetail, onNhapKho }: {
   receipts: ImportReceipt[]; retail: RetailOrder[]; warehouses: Warehouse[];
   onNewReceipt: () => void; onEditReceipt: (r: ImportReceipt) => void; onDeleteReceipt: (id: string) => void;
   onAcceptRetail: (id: string) => void; onShipRetail: (id: string) => void;
+  onNhapKho: (r: ImportReceipt) => void;
 }) {
   const [tab, setTab] = useState<"import" | "retail">("import");
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -378,6 +379,9 @@ function OrdersSection({ receipts, retail, warehouses, onNewReceipt, onEditRecei
                     <ActionBtn onClick={() => openDetail(r.maPhieu, "import")} variant="info">Xem</ActionBtn>
                     <ActionBtn onClick={() => onEditReceipt(r)} variant="primary">Sửa</ActionBtn>
                     <ActionBtn onClick={() => onDeleteReceipt(r.maPhieu)} variant="danger">Xóa</ActionBtn>
+                    {r.status === "da_nhan" && (
+                      <ActionBtn onClick={() => onNhapKho(r)} variant="success">📦 Nhập kho</ActionBtn>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1248,6 +1252,124 @@ function QualityModal({ check, inventory, onClose, onSaved }: {
   );
 }
 
+function NhapKhoModal({ receipt, warehouses, onClose, onSaved }: {
+  receipt: ImportReceipt; warehouses: Warehouse[]; onClose: () => void; onSaved: () => void;
+}) {
+  const [kiemDinhList, setKiemDinhList] = useState<{
+    MaKiemDinh: number; MaLo: number; TenSanPham: string; SoLuong: number;
+    KetQua: string; TrangThai: string; NguoiKiemDinh: string;
+  }[]>([]);
+  const [maKho, setMaKho] = useState(warehouses[0]?.maKho || "");
+  const [loading, setLoading] = useState(false);
+  const [loadingKD, setLoadingKD] = useState(true);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/kiem-dinh/don-hang/${receipt.maPhieu}`)
+      .then(r => r.json())
+      .then(d => setKiemDinhList(Array.isArray(d) ? d : []))
+      .catch(() => setErr("Không tải được thông tin kiểm định"))
+      .finally(() => setLoadingKD(false));
+  }, [receipt.maPhieu]);
+
+  const tatCaDat = kiemDinhList.length > 0 &&
+    kiemDinhList.every(kd => kd.TrangThai === "hoan_thanh" && ["dat","A","B","C"].includes(kd.KetQua));
+
+  const coKhongDat = kiemDinhList.some(kd => kd.KetQua === "khong_dat");
+
+  async function handleNhapKho() {
+    if (!maKho) return setErr("Vui lòng chọn kho");
+    setLoading(true); setErr("");
+    try {
+      const res = await fetch("/api/xuat-nhap-kho/nhap-tu-don-hang", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ MaDonHang: Number(receipt.maPhieu), MaKho: Number(maKho) }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      onSaved(); onClose();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Lỗi nhập kho");
+    } finally { setLoading(false); }
+  }
+
+  const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
+    dat:       { color: "#059669", bg: "#d1fae5" },
+    A:         { color: "#059669", bg: "#d1fae5" },
+    B:         { color: "#2563eb", bg: "#dbeafe" },
+    C:         { color: "#d97706", bg: "#fef3c7" },
+    khong_dat: { color: "#dc2626", bg: "#fee2e2" },
+    cho_kiem:  { color: "#7c3aed", bg: "#ede9fe" },
+  };
+
+  return (
+    <Modal title={`Nhập kho — Đơn #${receipt.maPhieu}`} onClose={onClose} wide>
+      {err && <div className="error-msg">{err}</div>}
+
+      <div style={{ marginBottom: 16, padding: "12px 14px", background: "#f8fafc", borderRadius: 10 }}>
+        <div className="u-text-sm u-text-muted u-mb-1">Nông dân</div>
+        <div className="u-font-bold u-text-dark">{receipt.tenNong || "—"}</div>
+      </div>
+
+      <div className="u-font-bold u-text-dark u-mb-3">Trạng thái kiểm định từng lô</div>
+      {loadingKD ? (
+        <p className="empty-msg">Đang tải kiểm định...</p>
+      ) : kiemDinhList.length === 0 ? (
+        <div className="error-msg">⚠ Chưa có phiếu kiểm định nào. Vui lòng tạo kiểm định trước.</div>
+      ) : (
+        <div style={{ marginBottom: 16 }}>
+          {kiemDinhList.map(kd => {
+            const s = STATUS_COLOR[kd.KetQua] ?? { color: "#555", bg: "#f3f4f6" };
+            const isDat = ["dat","A","B","C"].includes(kd.KetQua) && kd.TrangThai === "hoan_thanh";
+            return (
+              <div key={kd.MaKiemDinh} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", marginBottom: 8, background: isDat ? "#f0fdf4" : kd.KetQua === "khong_dat" ? "#fff1f2" : "#fefce8", borderRadius: 8, border: `1px solid ${isDat ? "#bbf7d0" : kd.KetQua === "khong_dat" ? "#fecdd3" : "#fde68a"}` }}>
+                <div>
+                  <div className="u-font-bold u-text-dark">{kd.TenSanPham} — {kd.SoLuong?.toLocaleString("vi-VN")} kg</div>
+                  <div className="u-text-sm u-text-muted">Người kiểm: {kd.NguoiKiemDinh || "—"} · Trạng thái: {kd.TrangThai === "hoan_thanh" ? "Hoàn thành" : "Chờ duyệt"}</div>
+                </div>
+                <span className="badge" style={{ color: s.color, background: s.bg, fontWeight: 700 }}>
+                  {kd.KetQua === "dat" ? "✓ Đạt" : kd.KetQua === "khong_dat" ? "✗ Không đạt" : kd.KetQua === "cho_kiem" ? "⏳ Chờ kiểm" : kd.KetQua}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {coKhongDat && (
+        <div className="error-msg" style={{ marginBottom: 12 }}>
+          ✗ Có lô không đạt kiểm định. Không thể nhập kho.
+        </div>
+      )}
+
+      {tatCaDat && (
+        <>
+          <div style={{ marginBottom: 12, padding: "10px 14px", background: "#f0fdf4", borderRadius: 8, color: "#059669", fontWeight: 600 }}>
+            ✓ Tất cả lô đã kiểm định đạt. Có thể nhập kho.
+          </div>
+          <FormField label="Chọn kho nhập *">
+            <select className="select" value={maKho} onChange={e => setMaKho(e.target.value)}>
+              {warehouses.length === 0
+                ? <option value="">— Chưa có kho —</option>
+                : warehouses.map(w => <option key={w.maKho} value={w.maKho}>{w.tenKho}</option>)
+              }
+            </select>
+          </FormField>
+        </>
+      )}
+
+      <div className="u-flex u-justify-end u-gap-3 u-mt-4">
+        <button className="btn btn-secondary" onClick={onClose}>Đóng</button>
+        {tatCaDat && (
+          <PrimaryBtn onClick={handleNhapKho} disabled={loading || !maKho}>
+            {loading ? "Đang nhập kho..." : "📦 Nhập kho"}
+          </PrimaryBtn>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 function UserProfileModal({ user, onClose, onEdit }: { user: AgencyUser; onClose: () => void; onEdit: () => void }) {
   const fields: [string, string][] = [
     ["Họ tên", user.fullName],
@@ -1325,7 +1447,7 @@ const PAGE_TITLES: Record<Section, string> = {
   dashboard: "Bảng điều khiển", orders: "Quản lý đơn hàng",
   inventory: "Quản lý kho", quality: "Kiểm định chất lượng", reports: "Báo cáo thống kê",
 };
-type ModalType = "receipt" | "receipt-edit" | "warehouse" | "warehouse-edit" | "quality" | "quality-edit" | "inventory-edit" | "profile" | "edit-profile" | null;
+type ModalType = "receipt" | "receipt-edit" | "warehouse" | "warehouse-edit" | "quality" | "quality-edit" | "inventory-edit" | "nhap-kho" | "profile" | "edit-profile" | null;
 
 export default function DailyApp() {
   const [section, setSection] = useState<Section>("dashboard");
@@ -1336,6 +1458,7 @@ export default function DailyApp() {
   const [retail, setRetail] = useState<RetailOrder[]>([]);
   const [modal, setModal] = useState<ModalType>(null);
   const [editTarget, setEditTarget] = useState<ImportReceipt | Warehouse | QualityCheck | InventoryBatch | null>(null);
+  const [nhapKhoTarget, setNhapKhoTarget] = useState<ImportReceipt | null>(null);
 
   const authUser = getCurrentUser();
   const maDaiLy = authUser?.maDoiTuong;
@@ -1668,6 +1791,7 @@ export default function DailyApp() {
             onDeleteReceipt={handleDeleteReceipt}
             onAcceptRetail={handleAcceptRetail}
             onShipRetail={handleShipRetail}
+            onNhapKho={r => { setNhapKhoTarget(r); setModal("nhap-kho"); }}
           />
         )}
         {section === "inventory" && (
@@ -1692,6 +1816,7 @@ export default function DailyApp() {
       {(modal === "warehouse" || modal === "warehouse-edit") && <WarehouseModal warehouse={modal === "warehouse-edit" ? editTarget as Warehouse : null} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadWarehouses} />}
       {(modal === "quality" || modal === "quality-edit") && <QualityModal check={modal === "quality-edit" ? editTarget as QualityCheck : null} inventory={inventory} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadQuality} />}
       {modal === "inventory-edit" && editTarget && <InventoryEditModal batch={editTarget as InventoryBatch} onClose={() => { setModal(null); setEditTarget(null); }} onSaved={reloadInventory} />}
+      {modal === "nhap-kho" && nhapKhoTarget && <NhapKhoModal receipt={nhapKhoTarget} warehouses={warehouses} onClose={() => { setModal(null); setNhapKhoTarget(null); }} onSaved={() => { reloadReceipts(); reloadInventory(); }} />}
       {modal === "profile" && <UserProfileModal user={user} onClose={() => setModal(null)} onEdit={() => setModal("edit-profile")} />}
       {modal === "edit-profile" && <EditProfileModal user={user} onClose={() => setModal(null)} onSaved={(u) => setUserInfo(prev => ({ ...prev, ...u }))} />}
     </div>

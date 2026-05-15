@@ -38,6 +38,7 @@ router.get('/get-all', ctrl.getAll);
  *         description: Danh sách kiểm định
  */
 router.get('/dai-ly/:maDaiLy', ctrl.getByDaiLy);
+router.get('/don-hang/:maDonHang', ctrl.getByDonHang);
 
 /**
  * @swagger

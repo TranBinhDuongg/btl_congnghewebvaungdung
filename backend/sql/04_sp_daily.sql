@@ -142,15 +142,51 @@ CREATE OR ALTER PROCEDURE sp_XacNhanDonHangDaiLy
     @MaDonHang INT
 AS BEGIN
     SET NOCOUNT ON;
-    -- Kiểm tra từng lô trong đơn có đủ tồn kho không
-    IF EXISTS (
-        SELECT 1 FROM ChiTietDonHang ct
-        JOIN LoNongSan lo ON ct.MaLo = lo.MaLo
-        WHERE ct.MaDonHang = @MaDonHang AND ct.SoLuong > lo.SoLuongHienTai
-    )
-        RAISERROR(N'Tồn kho không đủ cho một hoặc nhiều sản phẩm trong đơn', 16, 1)
+    BEGIN TRANSACTION
+    BEGIN TRY
+        -- Kiểm tra từng lô trong đơn có đủ tồn kho không
+        IF EXISTS (
+            SELECT 1 FROM ChiTietDonHang ct
+            JOIN LoNongSan lo ON ct.MaLo = lo.MaLo
+            WHERE ct.MaDonHang = @MaDonHang AND ct.SoLuong > lo.SoLuongHienTai
+        )
+            RAISERROR(N'Tồn kho không đủ cho một hoặc nhiều sản phẩm trong đơn', 16, 1)
 
-    UPDATE DonHang SET TrangThai = N'da_nhan' WHERE MaDonHang = @MaDonHang
+        -- Lấy MaDaiLy từ đơn hàng
+        DECLARE @MaDaiLy INT
+        SELECT @MaDaiLy = MaDaiLy FROM DonHangDaiLy WHERE MaDonHang = @MaDonHang
+
+        -- Cập nhật trạng thái đơn
+        UPDATE DonHang SET TrangThai = N'da_nhan' WHERE MaDonHang = @MaDonHang
+
+        -- Tự động tạo phiếu kiểm định cho_duyet cho từng lô trong đơn
+        INSERT INTO KiemDinh (MaLo, NguoiKiemDinh, MaDaiLy, KetQua, TrangThai, GhiChu)
+        SELECT ct.MaLo, N'Hệ thống', @MaDaiLy, N'cho_kiem', N'cho_duyet',
+               N'Tự động tạo khi xác nhận đơn #' + CAST(@MaDonHang AS NVARCHAR)
+        FROM ChiTietDonHang ct
+        WHERE ct.MaDonHang = @MaDonHang
+
+        COMMIT
+    END TRY
+    BEGIN CATCH
+        ROLLBACK
+        DECLARE @Err NVARCHAR(4000) = N'Lỗi xác nhận đơn: ' + ERROR_MESSAGE()
+        RAISERROR(@Err, 16, 1)
+    END CATCH
+END
+GO
+
+CREATE OR ALTER PROCEDURE sp_GetKiemDinhByDonHang
+    @MaDonHang INT
+AS BEGIN
+    SELECT kd.MaKiemDinh, kd.MaLo, kd.NguoiKiemDinh, kd.NgayKiemDinh,
+           kd.KetQua, kd.TrangThai, kd.BienBan, kd.GhiChu,
+           sp.TenSanPham, ct.SoLuong
+    FROM KiemDinh kd
+    JOIN ChiTietDonHang ct ON kd.MaLo = ct.MaLo AND ct.MaDonHang = @MaDonHang
+    JOIN LoNongSan lo ON kd.MaLo = lo.MaLo
+    JOIN SanPham sp ON lo.MaSanPham = sp.MaSanPham
+    ORDER BY kd.NgayKiemDinh DESC
 END
 GO
 
@@ -426,6 +462,18 @@ AS BEGIN
             SELECT 1 FROM DonHang
             WHERE MaDonHang=@MaDonHang AND LoaiDon='daily_to_nongdan' AND TrangThai=N'da_nhan'
         ) RAISERROR(N'Đơn hàng không hợp lệ hoặc chưa được xác nhận', 16, 1)
+
+        -- Kiểm tra tất cả lô trong đơn đã có kiểm định đạt (dat/A/B/C) và hoàn thành
+        IF EXISTS (
+            SELECT 1 FROM ChiTietDonHang ct
+            WHERE ct.MaDonHang = @MaDonHang
+              AND NOT EXISTS (
+                SELECT 1 FROM KiemDinh kd
+                WHERE kd.MaLo = ct.MaLo
+                  AND kd.TrangThai = N'hoan_thanh'
+                  AND kd.KetQua IN (N'dat', N'A', N'B', N'C')
+              )
+        ) RAISERROR(N'Một hoặc nhiều lô hàng chưa có kiểm định đạt. Vui lòng hoàn thành kiểm định trước khi nhập kho.', 16, 1)
 
         MERGE TonKho AS target
         USING (SELECT MaLo, SoLuong FROM ChiTietDonHang WHERE MaDonHang=@MaDonHang) AS source

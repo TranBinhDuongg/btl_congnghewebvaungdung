@@ -29,6 +29,16 @@ const getByDaiLy = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+const getByDonHang = async (req, res) => {
+  try {
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('MaDonHang', sql.Int, req.params.maDonHang)
+      .execute('sp_GetKiemDinhByDonHang');
+    res.json(result.recordset);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 const create = async (req, res) => {
   const { MaLo, NguoiKiemDinh, MaDaiLy, MaSieuThi, KetQua, BienBan, GhiChu } = req.body;
   try {
@@ -71,4 +81,4 @@ const remove = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getAll, getById, getByDaiLy, create, update, remove };
+module.exports = { getAll, getById, getByDaiLy, getByDonHang, create, update, remove };
