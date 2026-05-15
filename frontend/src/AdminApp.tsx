@@ -757,7 +757,7 @@ export default function AdminApp() {
   useEffect(() => {
     if (!authUser || authUser.role !== "admin") { window.location.href = "/login"; return; }
     fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, authUser]);
 
   const logs = ls<Log[]>("admin_logs", []);
 

@@ -47,7 +47,7 @@ function Navbar() {
     <nav style={{ position: "fixed", top: 0, width: "100%", zIndex: 1000, background: scrolled ? "rgba(7,26,14,0.97)" : "transparent", backdropFilter: scrolled ? "blur(14px)" : "none", borderBottom: scrolled ? "1px solid rgba(86,196,86,0.12)" : "none", transition: "all .35s" }}>
       <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}html{scroll-behavior:smooth}`}</style>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+        <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
           <div style={{ width: 36, height: 36, background: "linear-gradient(135deg,#56c456,#2d7a2d)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌿</div>
           <span style={{ fontFamily: SERIF, fontSize: 20, fontWeight: 900, color: C.white, letterSpacing: 0.5 }}>AgriChain</span>
         </a>
@@ -299,9 +299,9 @@ function Footer() {
             <p style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.9, marginBottom: 20 }}>Giải pháp công nghệ toàn diện cho quản lý nông sản và chuỗi cung ứng.</p>
             <div style={{ display: "flex", gap: 10 }}>
               {socials.map(s => (
-                <a key={s.label} href="#" style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "rgba(255,255,255,0.6)", textDecoration: "none", transition: "all .2s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = s.hoverBg; (e.currentTarget as HTMLAnchorElement).style.color = "#fff"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.6)"; }}>{s.icon}</a>
+                <button key={s.label} aria-label={s.label} style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "rgba(255,255,255,0.6)", textDecoration: "none", transition: "all .2s", cursor: "pointer" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = s.hoverBg; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.6)"; }}>{s.icon}</button>
               ))}
             </div>
           </div>
@@ -334,7 +334,7 @@ function Footer() {
           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>© 2026 AgriChain. All rights reserved.</p>
           <div style={{ display: "flex", gap: 20 }}>
             {["Điều khoản","Bảo mật","Cookie"].map(l => (
-              <a key={l} href="#" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none" }}>{l}</a>
+              <a key={l} href="/" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none" }}>{l}</a>
             ))}
           </div>
         </div>
