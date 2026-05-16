@@ -365,33 +365,6 @@ function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () =
   );
 }
 
-function exportOrdersCSV(orders: Order[]) {
-  if (orders.length === 0) return alert("Không có dữ liệu để xuất");
-  const STATUS_LABEL: Record<string, string> = {
-    chua_nhan: "Chờ xác nhận", da_nhan: "Đã xác nhận",
-    hoan_thanh: "Hoàn thành", da_huy: "Đã hủy",
-    pending: "Chờ xử lý", accepted: "Đã nhận đơn", shipped: "Đã xuất",
-  };
-  const rows = orders.map(o => [
-    `#${o.id}`,
-    o.agentName || "—",
-    o.quantity > 0 ? `${o.quantity} kg` : "—",
-    o.tongGiaTri ? `${o.tongGiaTri.toLocaleString("vi-VN")} đ` : "—",
-    o.date || "—",
-    STATUS_LABEL[o.status] || o.status,
-    o.ghiChu || "—",
-  ]);
-  const headers = ["Mã đơn", "Đại lý", "Số lượng", "Giá trị", "Ngày đặt", "Trạng thái", "Ghi chú"];
-  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `don-hang-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 function OrdersSection({ orders, onAccept, onShip, onCancel }: { orders: Order[]; onAccept: (id: string) => void; onShip: (id: string) => void; onCancel: (id: string) => void }) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
